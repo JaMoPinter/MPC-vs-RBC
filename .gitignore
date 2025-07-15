@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ignore the data in the raw_data folder
+01_data/raw_data/
+01_data/prosumption_data/
