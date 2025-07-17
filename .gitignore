@@ -209,3 +209,5 @@ __marimo__/
 # ignore the data in the raw_data folder
 01_data/raw_data/
 01_data/prosumption_data/
+
+02_forecast/tmp_forecast/results/
