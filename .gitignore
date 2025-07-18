@@ -211,3 +211,9 @@ __marimo__/
 01_data/prosumption_data/
 
 02_forecast/tmp_forecast/results/
+
+
+# ignore the created forecasting files
+02_forecast/storage_param_fc/
+02_forecast/storage_quantile_fc/
+

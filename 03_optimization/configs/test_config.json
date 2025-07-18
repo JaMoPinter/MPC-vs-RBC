@@ -1,0 +1,46 @@
+{
+    "run_name": "Test Experiment",
+
+    "forecasts": {
+        "name": "FCModel1",
+        "fc_update_freq": 120
+    },
+
+
+    "optimization": {
+        "buildings": ["artificial"],
+        "models": ["rule-based", "mpc_det", "mpc_prob"],
+        "start_time": "2017-04-28T06:00:00",
+        "end_time": "2017-04-28T13:59:00",
+        "gt_freq": 15,
+        "mpc_update_freq": [15],
+        "mpc_horizon": 3,
+        "objective": {
+            "c_buy": {
+                "default": 0.35,
+                "extra": {
+                    "hour 6": 0.7,
+                    "hour 7": 0.7,
+                    "hour 18": 0.2,
+                    "hour 19": 0.2
+                }
+            },
+            "c_sell": {
+                "default": 0.07
+            }
+
+        }
+    },
+
+
+    "battery": {
+        "capacity_min": 0.0,
+        "capacity_max": 7.0,
+        "power_min": -5.0,
+        "power_max": 5.0,
+        "charge_efficiency": 0.95,
+        "discharge_efficiency": 0.95,
+
+        "soe_initial": 5.0
+    }
+}
