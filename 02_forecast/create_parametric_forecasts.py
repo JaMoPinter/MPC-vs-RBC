@@ -77,6 +77,39 @@ class ParametricForecasts:
         self.quantile_forecasts = self.quantile_forecasts.drop(columns=['building', 'P_TOT'])
         
 
+    def load_parametric_forecasts(self, csv_path, name='sum2gaussian'):
+        """Load parametric forecasts from the specified. """
+
+        df = pd.read_csv(
+            csv_path,
+            parse_dates=['timestamp', 'time_fc_created'],
+            index_col='timestamp'
+        )
+
+        # Use multi-index for the DataFrame
+        df.set_index(['time_fc_created', df.index], inplace=True)
+
+        return df
+
+
+    def compute_expected_values(self, df, name):
+
+        # TODO: Recode that name is a class .self variable
+
+        # For now just code the expected value for the sum2gaussian distribution
+        if name == 'sum2gaussian':
+            for t, row in df.iterrows():
+                mu1 = row['mu1']
+                mu2 = row['mu2']
+                w1 = row['w1']
+                w2 = row['w2']
+                # Compute the expected value as a weighted sum
+                expected_value = w1 * mu1 + w2 * mu2
+                df.at[t, 'expected_value'] = expected_value
+
+        return df
+
+
 
 
 
