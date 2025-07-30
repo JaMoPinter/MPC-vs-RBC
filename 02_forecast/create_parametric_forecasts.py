@@ -1,9 +1,3 @@
-# File to fit parametric distribution to quantile forecasts
-
-# Create a class to handle the creation of parametric forecasts
-# The class needs the path to the file where the forecasts are stored and the name of the distribution to fit as inputs
-# The class should contain a method to load the quantile_forecasts, a method to fit the distribution (including sorting the quantiles) and a method to store the results in a different file
-# For now only normal distribution and the sum of two normal distributions is implemented as a parametric distribution
 
 import pandas as pd
 from scipy.stats import norm, gaussian_kde
@@ -11,16 +5,14 @@ from scipy.interpolate import interp1d
 from sklearn.mixture import GaussianMixture
 import numpy as np
 import os
+import sys
 
 
 class ParametricForecasts:
     def __init__(self):
         """
-        Initialize the ParametricForecasts class.
-
-        Args:
-            path (str): Path to the file containing quantile forecasts.
-            distribution (str): Type of distribution to fit ('normal' or 'sum2gaussian').
+        Initialize the ParametricForecasts class. This class is designed to handle the loading, processing, 
+        and storage of parametric forecasts.
         """
         self.quantile_forecasts = None
         self.param_forecasts = None
@@ -29,7 +21,13 @@ class ParametricForecasts:
 
 
     def load_quantile_forecasts(self, csv_path, timerange=None):
-        """Load quantile forecasts from the specified path and group them according to their creation timestamp."""
+        """ Load quantile forecasts from the specified path and group them according to their creation timestamp. 
+        
+        
+        Args:
+            csv_path (str): Path to the CSV file containing quantile forecasts.
+            timerange (list, optional): A list with two elements specifying the start and end time for filtering the forecasts.
+        """
 
         self.csv_path = csv_path
 
@@ -43,7 +41,7 @@ class ParametricForecasts:
         # Change the order of the columns to have P_TOT before quantiles
         cols = df.columns.tolist()
     
-        cols = ['building', 'P_TOT'] + [col for col in cols if col not in  ['building', 'P_TOT']]
+        cols = ['P_TOT'] + [col for col in cols if col not in  ['P_TOT']]
         df = df[cols]
 
         # remove the quantile_ prefix from the quantile columns
@@ -69,16 +67,13 @@ class ParametricForecasts:
             self.quantile_forecasts[created_time] = subdf
 
 
-        # Drop the 'building' and 'P_TOT' columns from the quantile forecasts
-
-
         self.quantile_forecasts = pd.concat(self.quantile_forecasts, axis=0, names=['time_fc_created', 'timestamp'])
         # drop the 'building' and 'P_TOT' columns from the quantile forecasts
-        self.quantile_forecasts = self.quantile_forecasts.drop(columns=['building', 'P_TOT'])
+        self.quantile_forecasts = self.quantile_forecasts.drop(columns=['P_TOT'])
         
 
     def load_parametric_forecasts(self, csv_path, name='sum2gaussian'):
-        """Load parametric forecasts from the specified. """
+        """ Load parametric forecasts from the specified path. """
 
         df = pd.read_csv(
             csv_path,
@@ -111,11 +106,8 @@ class ParametricForecasts:
 
 
 
-
-
-
     def fit_distribution(self, name):
-        """Fit the specified distribution to the quantile forecasts."""
+        """ Fit the specified distribution to the quantile forecasts. """
         if self.quantile_forecasts is None:
             raise ValueError("Quantile forecasts not loaded. Call load_quantile_forecasts() first.")
         
@@ -127,26 +119,28 @@ class ParametricForecasts:
 
     
     def fit_sum2gaussian(self):
+        ''' Fit a sum of two Gaussian distributions to the quantile forecasts. '''
 
-        self.param_forecasts = {}
+        idx = self.quantile_forecasts.index
+        param_cols = ['w1', 'mu1', 'std1', 'w2', 'mu2', 'std2']
+        self.param_forecasts = pd.DataFrame(index=idx, columns=param_cols)
+        np.random.seed(42)
 
-        for created_time, subdf in self.quantile_forecasts.items():
-            
-            # get a subdf excluding the 'building' and 'P_TOT' columns
-            #df_quantiles = subdf.drop(columns=['building', 'P_TOT'])
-            df_quantiles = subdf.copy()
+        total_rows = len(self.quantile_forecasts)
+        processed = 0
+        last_percent = -1  # to avoid printing too often
+
+        for created_time, group in self.quantile_forecasts.groupby(level='time_fc_created'):
+
+            df_quantiles = group.drop(columns=['P_TOT'], errors='ignore')
             quantile_probabilites = df_quantiles.columns.astype(float)
-
-
-            self.param_forecasts[created_time] = pd.DataFrame(index=df_quantiles.index, columns=['w1', 'mu1', 'std1', 'w2', 'mu2', 'std2'])   
 
             for t, quants in df_quantiles.iterrows():
                 # Step 1: Create an interpolator to map continuous probabilities to continuous values
                 inv_cdf = interp1d(quantile_probabilites, quants, kind='linear', fill_value='extrapolate')
 
                 # Step 2: Generate synthethic samples from the inverse CDF via interpolation
-                np.random.seed(42)
-                synthetic_probs = np.random.uniform(0.0, 1.0, 10000)
+                synthetic_probs = np.random.uniform(0.0, 1.0, 800)
                 synthetic_values = inv_cdf(synthetic_probs)
 
                 # Step 3: Fit Gaussian Mixture Model (GMM) to the synthetic samples
@@ -154,45 +148,60 @@ class ParametricForecasts:
                 gmm.fit(synthetic_values.reshape(-1, 1))
 
                 # Step 4: Store the GMM parameters in a DataFrame
-                self.param_forecasts[created_time].loc[t, 'w1'] = gmm.weights_[0]
-                self.param_forecasts[created_time].loc[t, 'mu1'] = gmm.means_[0, 0]
-                self.param_forecasts[created_time].loc[t, 'std1'] = np.sqrt(gmm.covariances_[0, 0, 0]) # Transform covariance to standard deviation
-                self.param_forecasts[created_time].loc[t, 'w2'] = gmm.weights_[1]
-                self.param_forecasts[created_time].loc[t, 'mu2'] = gmm.means_[1, 0]
-                self.param_forecasts[created_time].loc[t, 'std2'] = np.sqrt(gmm.covariances_[1, 0, 0]) # Transform covariance to standard deviation
+                self.param_forecasts.loc[t, :] = [
+                    gmm.weights_[0], gmm.means_[0, 0], np.sqrt(gmm.covariances_[0, 0, 0]),
+                    gmm.weights_[1], gmm.means_[1, 0], np.sqrt(gmm.covariances_[1, 0, 0])
+                ]
 
-        # Convert the dictionary of DataFrames to a single DataFrame
-        self.param_forecasts = pd.concat(self.param_forecasts, axis=0, names=['time_fc_created', 'timestamp'])
+                # Progress update (every 1%)
+                processed += 1
+                percent = int(100 * processed / total_rows)
+                if percent != last_percent and percent % 1 == 0:
+                    print(f"\rProgress: {percent}% ({processed}/{total_rows})", end="")
+                    sys.stdout.flush()
+                    last_percent = percent
 
 
-    def store_parametric_forecasts(self):
-        """Store the parametric forecasts to a CSV file."""
+
+
+    def store_parametric_forecasts(self, creation_time=False):
+        """ Store the parametric forecasts to a CSV file. If the file already exists, a counter is appended to the filename.
+        
+        Args:
+            creation_time (bool): If True, add the time of execution to the filename.
+        """
         if self.param_forecasts is None:
             raise ValueError("Parametric forecasts not generated. Call fit_distribution() first.")
-        
-        # Convert the dictionary of DataFrames to a single DataFrame
-        if not self.param_forecasts:
-            raise ValueError("No parametric forecasts to save.")
-        #combined_df = pd.concat(self.param_forecasts, axis=0)
-        #combined_df.index = combined_df.index.set_names(['time_fc_created', 'timestamp'])
 
-        # add curent timestamp to the filename
-        current_time = pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M')
         # Create the filename and directory based on the original CSV path
         filename = os.path.basename(self.csv_path).replace('file_fc', 'file_fc_parametric')
-        filename = filename.replace('.csv', f'_CreationTime{current_time}.csv')
+        if creation_time:
+            # add current timestamp to the filename
+            current_time = pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M')
+            filename = filename.replace('.csv', f'_CreationTime{current_time}.csv')
         directory = os.path.dirname(self.csv_path).replace('storage_quantile_fc', 'storage_param_fc')
-        
+
+        # Ensure the directory exists
+        os.makedirs(directory, exist_ok=True)
+
+        # Prepare the filepath
+        filepath = os.path.join(directory, filename)
+        base, ext = os.path.splitext(filename)
+        counter = 1
+        while os.path.exists(filepath):
+            filepath = os.path.join(directory, f"{base}_{counter}{ext}")
+            counter += 1
+
         # Save to CSV
-        self.param_forecasts.to_csv(directory + '/' + filename, index=True)
-        print(f"Parametric forecasts saved to {directory}")
+        self.param_forecasts.to_csv(filepath, index=True)
+        print(f"Parametric forecasts saved to {filepath}")
+
 
 
       
 
     def sort_quantiles(self):
-        """Sort the quantile columns in ascending order for each forecast (each row),
-        even though the DataFrame has a MultiIndex on its rows."""
+        """ Sort the quantile columns in ascending order for each forecast (each row). """
         print("Sorting quantiles in ascending order…")
 
         # 1) Identify the quantile columns by whatever naming convention you have:
@@ -211,22 +220,35 @@ class ParametricForecasts:
         return self.quantile_forecasts
 
 
-    def smooth_quantiles_over_time(self, df, window_size=3):
-        """Smooth the quantile forecasts using a rolling mean."""
-        print("Smoothing each quantile over time with a rolling mean…")
 
-        #df_quantiles = self.quantile_forecasts.drop(columns=['building', 'P_TOT'])
-        
-        # Apply rolling mean to each quantile column
-        smoothed_df = df.rolling(window=window_size, min_periods=1).mean()
-        
-        # Update the original DataFrame with smoothed values
-        self.quantile_forecasts.update(smoothed_df)
-        
-        return self.quantile_forecasts
+    def smooth_quantiles_over_time(self, df, window_size=3):
+        """
+        For each forecast creation time, smooth quantiles over time and re-sort quantiles at each time.
+        Assumes df has MultiIndex ('time_fc_created', 'timestamp') and columns 0.01 to 0.99 (floats or strings).
+        """
+        print("Smoothing each quantile over time with a rolling mean…")
+        quantile_cols = [col for col in df.columns if (isinstance(col, float) or col.replace('.', '', 1).isdigit())]
+
+        smoothed_pieces = []
+        # Group by 'time_fc_created'
+        for fc_time, group in df.groupby(level='time_fc_created'):
+            # Remove first level of index for easier handling
+            group = group.droplevel('time_fc_created')
+            # Apply rolling mean over time to each quantile column
+            smoothed = group[quantile_cols].rolling(window=window_size, min_periods=1).mean()
+            # Sort quantiles at each time step (row)
+            smoothed = smoothed.apply(np.sort, axis=1, result_type='broadcast')
+            # Restore multiindex
+            smoothed.index = pd.MultiIndex.from_product([[fc_time], smoothed.index], names=['time_fc_created', 'timestamp'])
+            smoothed_pieces.append(smoothed)
+
+        smoothed_df = pd.concat(smoothed_pieces).sort_index()
+        return smoothed_df
+
     
 
     def smooth_quantiles_at_each_time(self, df, window_size=3):
+        """ Smooth at each time over all 99 quantiles using a rolling mean. """
         print("Smoothing all quantiles at each time with a rolling mean…")
 
         #df_quantiles = self.quantile_forecasts.drop(columns=['building', 'P_TOT'])
@@ -235,7 +257,6 @@ class ParametricForecasts:
             # row is a single timestamp’s array of quantile values
             smoothed_values = row.rolling(window=window_size, min_periods=1, center=True).mean()
             fc_smoothed.append(smoothed_values.values)
-        self.quantile_forecasts = df.copy()
         return pd.DataFrame(fc_smoothed, index=df.index, columns=df.columns)
 
                 

@@ -216,4 +216,5 @@ __marimo__/
 # ignore the created forecasting files
 02_forecast/storage_param_fc/
 02_forecast/storage_quantile_fc/
+02_forecast/storage_evaluation/
 
