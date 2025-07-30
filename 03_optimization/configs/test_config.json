@@ -2,17 +2,19 @@
     "run_name": "Test Experiment",
 
     "forecasts": {
-        "name": "FCModel1",
-        "fc_update_freq": 120
+        "model": "AutoKAN",
+        "fc_creation_time": "2025-07-25T14:18:05+00:00",
+        "parametric_assumption": "sum2gaussian",
+        "fc_update_freq": 15
     },
 
 
     "optimization": {
-        "buildings": ["artificial"],
+        "buildings": ["SFH3"],
         "models": ["rule-based", "mpc_det", "mpc_prob"],
-        "start_time": "2017-04-28T06:00:00",
-        "end_time": "2017-04-28T13:59:00",
-        "gt_freq": 15,
+        "start_time": "2020-05-13T07:00:00+00:00",
+        "end_time": "2020-05-13T13:59:00+00:00",
+        "gt_freq": 1,
         "mpc_update_freq": [15],
         "mpc_horizon": 3,
         "objective": {

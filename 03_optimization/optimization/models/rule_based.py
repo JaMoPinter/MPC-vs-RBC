@@ -1,6 +1,7 @@
 from ..base import BaseOptimizer
 
 
+
 class RuleBasedOptimizer(BaseOptimizer):
     """
     Simple rule-based: charge if PV > load and battery not full, discharge if the reverse.
@@ -23,7 +24,7 @@ class RuleBasedOptimizer(BaseOptimizer):
     def update_soe(self, t_now, action, gt) -> float:
 
         net_load = gt  # TODO: Rewrite net_load to gt
-        print(f"Net load at {t_now}: {net_load} kW")  # Debugging output
+        #print(f"Net load at {t_now}: {net_load} kW")  # Debugging output
 
         if net_load <= 0:  # Charge the battery
             mu = self.mu_charge

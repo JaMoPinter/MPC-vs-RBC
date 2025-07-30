@@ -6,6 +6,7 @@ from sklearn.mixture import GaussianMixture
 import numpy as np
 import os
 import sys
+import re
 
 
 class ParametricForecasts:
@@ -188,8 +189,16 @@ class ParametricForecasts:
         filepath = os.path.join(directory, filename)
         base, ext = os.path.splitext(filename)
         counter = 1
+
+        # Find the '_SFH' pattern in the filename (e.g., 'file_fc_SFH3_2024-07-25.csv')
+        pattern = r'(_SFH\d+)'
+        match = re.search(pattern, base)
+        sfh_part = match.group(1)
+
         while os.path.exists(filepath):
-            filepath = os.path.join(directory, f"{base}_{counter}{ext}")
+            # Insert the counter before _SFH part
+            new_base = base.replace(sfh_part, f"{counter:02d}{sfh_part}")
+            filepath = os.path.join(directory, f"{new_base}{ext}")
             counter += 1
 
         # Save to CSV

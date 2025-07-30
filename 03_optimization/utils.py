@@ -1,5 +1,33 @@
-# file with utility functions for optimization tasks
+# file with utility functions 
 import pandas as pd
+import os
+
+
+
+
+
+def load_chunks(path, t_start, t_end, filter_col,parse_dates=None, chunksize=100_000, usecols=None):
+    """ Load chunks of a CSV file and filter them by a date range. 
+    
+    Args:
+        path (str): Path to the CSV file.
+        t_start (pd.Timestamp): Start of the time range - time_fc_creation.
+        t_end (pd.Timestamp): End of the time range - time_fc_creation.
+        filter_col (str): Column to filter the data according to t_start and t_end.
+        parse_dates (list): List of columns to parse as dates.
+        chunksize (int): Number of rows per chunk to read from the CSV file.
+        usecols (list, optional): List of columns to read from the CSV file. If None, all columns are read."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"File not found: {path}")
+    
+    chunks = pd.read_csv(path, chunksize=chunksize, usecols=usecols, parse_dates=parse_dates)
+    dfs = []
+    for chunk in chunks:
+        mask = (chunk[filter_col] >= t_start) & (chunk[filter_col] <= t_end)
+        dfs.append(chunk[mask])
+    df = pd.concat(dfs, ignore_index=True)
+    df.set_index(parse_dates, inplace=True)
+    return df
 
 
 def map_costs_to_timestamps(costs: dict) -> pd.DataFrame:

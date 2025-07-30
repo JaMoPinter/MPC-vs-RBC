@@ -1,5 +1,8 @@
 import os
 import pandas as pd
+import sys
+
+from utils import load_chunks
 
 
 class GroundTruthManager:
@@ -29,10 +32,6 @@ class GroundTruthManager:
         self._cache = {}  # cache[(building, freq)] -> resampled df
 
 
-
-
-
-
         self._load_gt()  
         self._validate_freq()
 
@@ -49,29 +48,20 @@ class GroundTruthManager:
 
         # Load each building's fine-resolution DataFrame
         for b in self.buildings:
-            path = f'data/{b}/ground_truth/{b}_ground_truth.csv'
+            num_pv_modules, orientation = self.map_building_to_pv_num_orientation(b)
+            path = f'01_data/prosumption_data/1min/prosumption_{b}_num_pv_modules_{num_pv_modules}_pv_{orientation}_hp_1.0.csv'
 
-            if not os.path.exists(path):
-                raise FileNotFoundError(f"GT file not found for building '{b}': {path}")
-            
-            df = pd.read_csv(path, index_col=0, parse_dates=True)
+
+            df = load_chunks(path, self.start_time, self.end_time + pd.Timedelta(hours=self.mpc_horizon - 1), filter_col='index', parse_dates=['index'], usecols=['index', 'P_TOT'])
+            df['P_TOT'] = df['P_TOT'] / 1000.0  # Convert from W to kW
+
             # Ensure a datetime index
             if not isinstance(df.index, pd.DatetimeIndex):
                 raise ValueError(f"GT file for '{b}' must have a DatetimeIndex")
             
             self._dfs[b] = df.sort_index()
 
-        # Filter each DataFrame to the relevant time range
-        for b, df in self._dfs.items():
-            # Ensure the DataFrame covers the full range from start_time to end_time + mpc_horizon
-            # Exclude the last hour since it is not needed
-            df_filtered = df.loc[self.start_time:self.end_time + pd.Timedelta(hours=self.mpc_horizon - 1)]
-
-            
-            self._dfs[b] = df_filtered
         
-        
-
 
     def _validate_freq(self):
         """
@@ -123,6 +113,42 @@ class GroundTruthManager:
         
         
 
+    def map_building_to_pv_num_orientation(self, b):
+        """
+        Maps a building string to the number of PV modules and orientation used. Right now, this is a hardcoded mapping.
+        Once the GT data is changed (eg. change pv orientation or scaling), this function needs to be adapted accordingly!
+
+        Returns
+        -------
+        tuple
+            (num_pv_modules, orientation) with orientation representing the pv orientation, i.e. 'SOUTH', 'EAST', 'WEST'.
+        """
+
+        mapper = {
+            'SFH3': (26, 'SOUTH'),
+            'SFH4': (30, 'SOUTH'),
+            'SFH9': (36, 'SOUTH'),
+            'SFH10': (25, 'SOUTH'),
+            'SFH12': (21, 'SOUTH'),
+            'SFH14': (28, 'SOUTH'),
+            'SFH16': (25, 'EAST'),
+            'SFH18': (16, 'EAST'),
+            'SFH19': (38, 'EAST'),
+            'SFH22': (21, 'EAST'),
+            'SFH27': (20, 'WEST'),
+            'SFH28': (27, 'WEST'),
+            'SFH29': (19, 'WEST'),
+            'SFH30': (18, 'WEST'),
+            'SFH32': (30, 'WEST'),
+            # 'SFH36': (XX, 'XXX'),
+
+        }
+
+        if b not in mapper:
+            raise ValueError(f"Building '{b}' not found in GT mapping. Available buildings: {list(mapper.keys())}")
+        
+        num_pv_modules, orientation = mapper[b]
+        return num_pv_modules, orientation
 
 
 
