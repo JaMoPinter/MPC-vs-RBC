@@ -27,42 +27,42 @@ class RuleBasedOptimizer(BaseOptimizer):
         #print(f"Net load at {t_now}: {net_load} kW")  # Debugging output
 
         if net_load <= 0:  # Charge the battery
-            mu = self.mu_charge
+            eta = self.eta_ch
 
             # Calculate the available charge of the battery. If available charge is more than net load, charge with net load. 
             # Otherwise, charge with available charge. Thus battery should be fully charged at the end.
             # Here, we assume average power over the time step. In reality battery would charge faster at beginning until its full.
 
             available_cap = self.cap_max - self.soe_now
-            needed_cap = - net_load * mu * self.t
+            needed_cap = - net_load * eta * self.t_inc
 
             if available_cap >= needed_cap:
                 pb = max(net_load, self.pb_min)  # Charge with net load, but not below pb_min
 
             else:  # Not enough capacity avalable to compensate net load
-                pb = - available_cap / (mu * self.t)  # Power to charge the battery with available capacity
+                pb = - available_cap / (eta * self.t_inc)  # Power to charge the battery with available capacity
                 pb = max(pb, self.pb_min)
 
 
         else:  # Discharge the battery
-            mu = 1 / self.mu_discharge   
+            eta = 1 / self.eta_dis
 
             # Calculate the available discharge of the battery. If available discharge is more than net load, discharge with net load.
             # Otherwise, discharge with available discharge. Thus battery should be fully discharged at the end.
 
             available_cap = self.soe_now - self.cap_min
-            needed_cap = net_load * mu * self.t
+            needed_cap = net_load * eta * self.t_inc
 
             if available_cap >= needed_cap:
                 pb = min(net_load, self.pb_max)  # Discharge with net load, but not above pb_max
 
             else:  # Not enough capacity avalable to compensate net load
-                pb = available_cap / (mu * self.t)
+                pb = available_cap / (eta * self.t_inc)
                 pb = min(pb, self.pb_max)
 
 
-        pg = net_load - pb  # Grid Power 
-        soe_new = self.soe_now - pb * self.t * mu 
+        pg = net_load - pb  # Grid Power
+        soe_new = self.soe_now - pb * self.t_inc * eta
 
 
         # check if the new state of charge is within limits

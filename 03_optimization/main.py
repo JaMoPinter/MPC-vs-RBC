@@ -8,6 +8,7 @@ from input_manager.fc_loader import ForecastLoader
 from input_manager.fc_manager import ForecastManager
 
 from input_manager.gt_manager import GroundTruthManager
+from input_manager.price_manager import PriceManager
 
 from optimization.registry import OptimizerRegistry
 
@@ -42,11 +43,15 @@ def main(config_path: str):
     # Load ground truth data
     gt_manager = GroundTruthManager(config)
 
+    # Load price data
+    price_manager = PriceManager(filename=config['optimization']['prices'])
 
 
     # Load building forecasts
     fc_loader = ForecastLoader(config)
     fc_loader.validate_config()
+
+
 
 
 
@@ -67,33 +72,28 @@ def main(config_path: str):
         for mpc_freq in config['optimization']['mpc_update_freq']:
             print(f"\n=== Running optimization with MPC frequency: {mpc_freq} minutes ===\n")
 
-            # time_range = pd.date_range(
-            #     start=fc_loader.start_time,
-            #     end=fc_loader.end_time,
-            #     freq=f'{mpc_freq}min'
-            # )
 
-            # print(f"Times to start an optimization: {time_range}")
 
 
             for b in config['optimization']['buildings']:
                 print(f"\n=== Running simulation for building: {b} ===")
 
+                prices = price_manager.get_prices(mpc_freq)
+                gt_full = gt_manager.get_gt(b)
+                gt_delta = gt_manager.gt_freq  # Use the GT frequency from the manager
 
-                optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq)
 
-                #fcs = fc_loader.load_relevant_fc(b)
-                #fc_manager = ForecastManager(building=b, fcs=fcs, fc_updates=fc_loader.forecasts_to_load, horizon_len=fc_loader.mpc_horizon)
+                optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, param_assumption=config['forecasts']['parametric_assumption'], prices=prices)
                 fc_manager = ForecastManager(building=b, mpc_freq=mpc_freq, loader=fc_loader)
 
-                #gt_manager = GroundTruthManager(config=config)  # TODO: MAybe this should also be a loader and manager separately?
 
                 sim = SimulationEngine(
                     optimizer    = optimizer,
                     fc_manager   = fc_manager,
-                    gt_manager   = gt_manager,
-                    building    = b,
-                    mpc_freq    = mpc_freq
+                    gt_full      = gt_full,
+                    gt_delta     = gt_delta,
+                    building     = b,
+                    mpc_freq     = mpc_freq
                 )
 
                 df_run = sim.run(start=fc_loader.start_time, end=fc_loader.end_time)

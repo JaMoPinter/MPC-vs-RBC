@@ -80,7 +80,7 @@ class GroundTruthManager:
                     f"mpc_freq={mpc_freq}min is not a multiple of base GT freq={self.base_freq_min}min"
                 )
             
-    def get_gt(self, building, gt_freq):
+    def get_gt(self, building):
         """
         Return the GT for `building` resampled to `gt_freq` minutes.
 
@@ -88,22 +88,20 @@ class GroundTruthManager:
         ----------
         building : str
             Building identifier.
-        gt_freq : int
-            gt update interval in minutes.
         """
         if building not in self._dfs:
             raise KeyError(f"Unknown building '{building}'")
 
-        key = (building, gt_freq)
+        key = (building, self.gt_freq)
 
         if key not in self._cache:
             df_fine = self._dfs[building]
             # e.g. '30min', '60min'
-            rule = f"{gt_freq}min"  # TODO: Make this via its own parameter from the config
+            rule = f"{self.gt_freq}min"  # TODO: Make this via its own parameter from the config
 
             # use mean and linear interpolation for missing values
             df_rs = (df_fine
-                    .resample(rule)    
+                    .resample(rule)    # TODO: Check this resampling logic. Be aware of possible timestamp shifts!
                     .mean()
                     #.interpolate(method="time")  # Possibly needed for uneven resampling (e.g. 15min to 35min)
                     )

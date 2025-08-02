@@ -3,6 +3,8 @@ import pandas as pd
 from .fc_window import ForecastWindow
 from .fc_loader import ForecastLoader
 
+from datetime import timedelta
+# TODO: Ideally, this class should have the same struture as GroundTruthManager and PriceManager.
 
 class ForecastManager:
     """ """
@@ -40,7 +42,7 @@ class ForecastManager:
             
             # Load a new (more recent) forecast
             df, valid_until = self._select_forecast(t_now)
-            print(f"Load new forecast at {t_now}")
+            print(f"Load new forecast at {t_now}: {df}")
 
             # Initialize a new ForecastWindow
             self._current_window = ForecastWindow(
@@ -71,7 +73,8 @@ class ForecastManager:
             # Get the last forecast time from the loader
             latest_fc_time = self.forecast_update_times[-1]
             print("Using last forecast!")
-            valid_until = t_now  # Check if this does not cause any issues. Should be valid for the remainder of the optimization
+            valid_until = t_now + timedelta(minutes=self.mpc_freq)  # Check if this does not cause any issues. Should be valid for the remainder of the optimization
+
         
         
         df = self.fcs[latest_fc_time]

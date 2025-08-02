@@ -20,16 +20,17 @@ class SimulationEngine:
     def __init__(self,
                  optimizer,
                  fc_manager,
-                 gt_manager,
+                 gt_full,
+                 gt_delta,
                  building: str,
                  mpc_freq: int):
         
         self.opt = optimizer
         self.fc_manager = fc_manager
-        self.gt_manager = gt_manager
+        self.gt_full = gt_full
         self.building = building
         self.mpc_delta = timedelta(minutes=mpc_freq)
-        self.gt_delta = timedelta(minutes=self.gt_manager.gt_freq)
+        self.gt_delta = timedelta(minutes=gt_delta)
 
 
 
@@ -39,7 +40,7 @@ class SimulationEngine:
         
         """
 
-        gt_full = self.gt_manager.get_gt(self.building, self.gt_manager.gt_freq)       # TODO: Check if get_gt works like that
+        #gt_full = self.gt_manager.get_gt(self.building, self.gt_manager.gt_freq)       # TODO: Check if get_gt works like that
 
         logs = []
         t_now = start
@@ -49,7 +50,8 @@ class SimulationEngine:
 
             # 1. Decision at t_now
             fc_slice = self.fc_manager.get_forecast(t_now)                  # TODO: Check if get_forecasts works like that
-            decision = self.opt.optimize(t_now, fc_slice)['action']    # TODO: Check if optimize works like that
+            decision = self.opt.optimize(t_now, fc_slice)#['action']    # TODO: Check if fc_slice is enough for the optimizer
+            print("FINAL DECISION:", decision)
 
             # 2. Determine next decision time
             t_next = t_now + self.mpc_delta
@@ -60,7 +62,7 @@ class SimulationEngine:
 
                 #print("gt_full columns:", gt_full)
 
-                gt = gt_full.loc[t, 'P_TOT']
+                gt = self.gt_full.loc[t, 'P_TOT']
 
                 self.opt.update_soe(t, decision, gt)  # TODO: Check if update_soe works like that
 
@@ -79,6 +81,8 @@ class SimulationEngine:
                 # })
 
                 #soe = soe_new
+
+                #print("logs:", logs[-1])  # Debugging output
 
             t_now = t_next
 

@@ -11,27 +11,13 @@
 
     "optimization": {
         "buildings": ["SFH3"],
-        "models": ["rule-based", "mpc_det", "mpc_prob"],
+        "models": ["rule-based", "interval", "mpc_det"],
         "start_time": "2020-05-13T07:00:00+00:00",
-        "end_time": "2020-05-13T13:59:00+00:00",
+        "end_time": "2020-05-13T07:59:00+00:00",
         "gt_freq": 1,
         "mpc_update_freq": [15],
         "mpc_horizon": 3,
-        "objective": {
-            "c_buy": {
-                "default": 0.35,
-                "extra": {
-                    "hour 6": 0.7,
-                    "hour 7": 0.7,
-                    "hour 18": 0.2,
-                    "hour 19": 0.2
-                }
-            },
-            "c_sell": {
-                "default": 0.07
-            }
-
-        }
+        "prices": "electricity_price_estimation.csv"
     },
 
 
@@ -43,6 +29,6 @@
         "charge_efficiency": 0.95,
         "discharge_efficiency": 0.95,
 
-        "soe_initial": 5.0
+        "soe_initial": 3.0
     }
 }
