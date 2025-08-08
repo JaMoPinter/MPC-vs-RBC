@@ -6,7 +6,7 @@ class BaseOptimizer(ABC):
     Abstract base class for rolling-horizon optimizers.
     """
 
-    def __init__(self, battery_cfg: dict, mpc_freq: int, prices, param_assumption: str = None):
+    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int,prices, param_assumption: str = None):
         """
         Initialize the optimizer.
         """
@@ -17,6 +17,7 @@ class BaseOptimizer(ABC):
         # TODO: Implement here all the parameters that are needed for all the optimizers! 
         self.mpc_freq = mpc_freq  # MPC frequency in minutes
         self.t_inc = self.mpc_freq / 60  # Convert minutes to hours
+        self.gt_inc = gt_freq / 60 # frequency of ground truth data in hours
 
         self.param_assumption = param_assumption  # Assumption for parametric forecasts, e.g., 'normal', 'sum2gaussian', etc.
         

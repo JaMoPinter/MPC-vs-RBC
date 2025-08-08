@@ -47,6 +47,45 @@ def cdf_formula(name):
         raise ValueError(f'CDF formula {name} not recognized')
     
 
+def cdf_formula_numpy(name):
+    ''' Returns the CDF formula for the specified distribution. 
+
+    This is needed becasue during optimization, pyomo cannot utilize other libraries (like numpy). However, for the 
+    plotting, pyomo cannot be used. Therefore, this function allows a computation of the CDF using numpy. '''
+
+    def cdf_normal(x, mu, sig):
+        ''' Abramowitz-Stegun approximation of the normal CDF '''
+        z = (x - mu) / sig
+
+        def phi(z):
+            if z < 0: 
+                return 1 - phi(-z)
+
+            d1 = 0.0498673470
+            d2 = 0.0211410061
+            d3 = 0.0032776263
+            d4 = 0.0000380036
+            d5 = 0.0000488906
+            d6 = 0.0000053830 
+
+            t = 1 + d1 * z + d2 * z**2 + d3 * z**3 + d4 * z**4 + d5 * z**5 + d6 * z**6
+
+            return 1 - 0.5 * (t ** -16)
+            
+        return phi(z)  
+
+    
+    if name == 'normal':  # Abramowitz-Stegun approximation of the normal CDF
+        return cdf_normal
+    
+    elif name == 'sum2gaussian':
+        return lambda x, w1, mu1, sig1, w2, mu2, sig2: w1 * cdf_normal(x, mu1, sig1) + w2 * cdf_normal(x, mu2, sig2)
+    
+    elif name == 'sum-2-logistic-distributions':
+        return lambda x, w1, w2, w3, w4, w5, w6: w1 / (1 + np.exp(-w2 *(x - w3))) + w4 / (1 + np.exp(-w5 *(x - w6)))
+
+    else:
+        raise ValueError(f'CDF formula {name} not recognized')
 
 
 def pdf_formula(name):

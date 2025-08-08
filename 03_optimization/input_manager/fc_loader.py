@@ -5,6 +5,7 @@ import os
 
 from utils import load_chunks
 
+# TODO: Create a base class for the input_managers, so that all the managers have access to the full config easily.
 
 class ForecastLoader:
     """
@@ -99,8 +100,8 @@ class ForecastLoader:
                 for t, df in fcs.items():
 
                     # Check if df covers a time range of at least self.mpc_horizon
-                    if (df.index[-1] - df.index[0]) < (timedelta(hours=self.mpc_horizon)):
-                        raise ValueError(f'Forecast for building {b} at timestamp {t} does not cover the required time range of {self.mpc_horizon} OP-Horizon hours + {self.fc_freq} Forecasting-Frequency minutes.')
+                    if (df.index[-1] - df.index[0]) + timedelta(minutes=self.fc_freq) < (timedelta(hours=self.mpc_horizon)):
+                        raise ValueError(f'Forecast for building {b} at timestamp {t} does not cover the required time range of {self.mpc_horizon} OP-Horizon hours.')
 
                     # Check if the frequency of the df is at least self.mpc_update_freq
                     if len(df.index) < 2:

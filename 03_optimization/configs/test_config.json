@@ -2,33 +2,33 @@
     "run_name": "Test Experiment",
 
     "forecasts": {
-        "model": "AutoKAN",
+        "model": "AutoKANHOURLYTEST",
         "fc_creation_time": "2025-07-25T14:18:05+00:00",
         "parametric_assumption": "sum2gaussian",
-        "fc_update_freq": 15
+        "fc_update_freq": 60
     },
 
 
     "optimization": {
         "buildings": ["SFH3"],
-        "models": ["rule-based", "interval", "mpc_det"],
+        "models": ["interval", "rule-based"],
         "start_time": "2020-05-13T07:00:00+00:00",
-        "end_time": "2020-05-13T07:59:00+00:00",
-        "gt_freq": 1,
-        "mpc_update_freq": [15],
-        "mpc_horizon": 3,
-        "prices": "electricity_price_estimation.csv"
+        "end_time": "2020-05-13T09:00:00+00:00",
+        "gt_freq": 15,
+        "mpc_update_freq": [60],
+        "mpc_horizon": 24,
+        "prices": "const_prices_testing.csv"
     },
 
 
     "battery": {
         "capacity_min": 0.0,
-        "capacity_max": 7.0,
-        "power_min": -5.0,
-        "power_max": 5.0,
+        "capacity_max": 5.0,
+        "power_min": -2.0,
+        "power_max": 2.0,
         "charge_efficiency": 0.95,
         "discharge_efficiency": 0.95,
 
-        "soe_initial": 3.0
+        "soe_initial": 2.5
     }
 }
