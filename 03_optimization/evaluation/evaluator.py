@@ -21,15 +21,20 @@ class Evaluator:
             df_run: str | Path | pd.DataFrame, 
             prices: Optional[str | Path | pd.DataFrame] = None
     ):
-        print("Current working directory:", Path.cwd())
+        #print("Current working directory:", Path.cwd())
         self.df = (pd.read_csv(df_run, parse_dates=['timestamp']) if isinstance(df_run, (str, Path)) else df_run.copy())
-        self.df.set_index('timestamp', inplace=True)
+        if 'timestamp' in self.df.columns:
+            self.df.set_index('timestamp', inplace=True)
+
         if prices is not None:
             self.prices = (pd.read_csv(prices, parse_dates=['timestamp']) if isinstance(prices, (str, Path)) else prices.copy())
             self.prices.reset_index()
             if 'timestamp' in self.prices.columns:
                 self.prices.set_index('timestamp', inplace=True)
             self.prices.index = pd.to_datetime(self.prices.index)
+        elif {"c_buy", "c_sell"}.issubset(self.df.columns):
+            # attach implicit prices (already applied in SimulationEngine)
+            self.prices = self.df[["timestamp", "c_buy", "c_sell"]].set_index("timestamp")
         else:
             self.prices = None
 
@@ -41,10 +46,7 @@ class Evaluator:
             raise ValueError("Prices data is required to calculate energy costs.")
         
         # The prices and df do not have the same resolution. We need to map each row of the df to prices of the latest timestamp.
-        
-        #self.df['costs_buy'] = self.df['power'] * self.prices['price'].reindex(self.df.index, method='ffill') # TODO: Check if this works properly
-
-        # whenever df['pg'] is positive, we buy energy, otherwise we sell it
+        # whenever df['pg'] is positive, we buy energy, otherwise we sell it. ffill is forward filling to account for frequency mismatch of prices/df
         self.df['costs_buy'] = self.df['pg'].clip(lower=0) * self.prices['import_price'].reindex(self.df.index, method='ffill')
         self.df['costs_sell'] = -self.df['pg'].clip(upper=0) * self.prices['export_price'].reindex(self.df.index, method='ffill')
 
@@ -54,7 +56,7 @@ class Evaluator:
         # Calculate total costs/revenue
         import_cost = float(self.df['costs_buy'].sum())
         export_revenue = float(self.df['costs_sell'].sum())
-        total_cost = import_cost + export_revenue
+        total_cost = import_cost - export_revenue
 
         costs_summary = {
             'import_cost': import_cost,

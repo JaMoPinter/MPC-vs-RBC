@@ -13,22 +13,22 @@
         "buildings": ["SFH3"],
         "models": ["interval", "rule-based"],
         "start_time": "2020-05-13T07:00:00+00:00",
-        "end_time": "2020-05-13T09:00:00+00:00",
+        "end_time": "2020-05-13T20:00:00+00:00",
         "gt_freq": 15,
         "mpc_update_freq": [60],
         "mpc_horizon": 24,
-        "prices": "const_prices_testing.csv"
+        "prices": "electricity_price_estimation.csv"
     },
 
 
     "battery": {
         "capacity_min": 0.0,
-        "capacity_max": 5.0,
-        "power_min": -2.0,
-        "power_max": 2.0,
+        "capacity_max": 8.0,
+        "power_min": -5.0,
+        "power_max": 5.0,
         "charge_efficiency": 0.95,
         "discharge_efficiency": 0.95,
 
-        "soe_initial": 2.5
+        "soe_initial": 4.0
     }
 }

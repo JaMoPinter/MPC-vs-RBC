@@ -16,6 +16,8 @@ from utils import map_costs_to_timestamps
 
 from optimization.simulation_engine import SimulationEngine
 
+from evaluation.evaluator import Evaluator
+
 
 def main(config_path: str):
     """
@@ -30,14 +32,8 @@ def main(config_path: str):
         config = json.load(f)
 
 
-    # Create run folder
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    # run_folder = f'runs/{timestamp}'
-    # os.makedirs(run_folder, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
 
-    # Save a copy of the config for reproducibility
-    # with open(os.path.join(run_folder, "config.json"), "w") as f:
-    #     json.dump(config, f, indent=2)
 
 
     # Load ground truth data
@@ -83,7 +79,7 @@ def main(config_path: str):
                 gt_delta = gt_manager.gt_freq  # Use the GT frequency from the manager
 
 
-                optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, param_assumption=config['forecasts']['parametric_assumption'], prices=prices)
+                optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, gt_freq=gt_delta, param_assumption=config['forecasts']['parametric_assumption'], prices=prices)
                 fc_manager = ForecastManager(building=b, mpc_freq=mpc_freq, loader=fc_loader)
 
 
@@ -97,11 +93,22 @@ def main(config_path: str):
                 )
 
                 df_run = sim.run(start=fc_loader.start_time, end=fc_loader.end_time)
+
+                # prices and df most likely do not have the same index. df_run is likely to have a higer resolution
+                # each row in df_run should get the correct price from prices. Here eg 01:15 should get the price at the closest 
+                # time. Ideally also at 01:15, otherwise the price at 01:00 but never the price at 01:30
+                df_run['c_buy'] = prices['import_price'].reindex(df_run.index, method='ffill')
+                df_run['c_sell'] = prices['export_price'].reindex(df_run.index, method='ffill')
+
                 results.append(df_run)
 
+                ev = Evaluator(df_run, prices)
+                costs_summary = ev.get_costs()
+                print(f"Costs summary for building {b} with model {opt_name} and MPC frequency {mpc_freq}: {costs_summary}")
+
                 os.makedirs('03_optimization/runs', exist_ok=True)
-                out_path = f"03_optimization/runs/logs_{timestamp}_{opt_name}_op-freq-{mpc_freq}.csv"
-                df_run.to_csv(out_path, index=False)
+                out_path = f"03_optimization/runs/logs_{timestamp}_op-{opt_name}_freq-{mpc_freq}_building-{b}.csv" # TODO: Should I also log the prices here?
+                df_run.to_csv(out_path, index=True)
 
 
 
@@ -109,7 +116,10 @@ def main(config_path: str):
   
 
 if __name__ == "__main__":
-    import sys
-    main(sys.argv[1])
+    #import sys
+    #main(sys.argv[1])
 
+    # debugging mode
+    path = "03_optimization/configs/test_config.json"
+    main(path)
 

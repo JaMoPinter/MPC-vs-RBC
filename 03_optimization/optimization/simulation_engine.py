@@ -66,31 +66,11 @@ class SimulationEngine:
 
                 self.opt.update_soe(t, decision, gt)  # TODO: Check if update_soe works like that
 
-                # log per gt_freq results (likely every minute)
                 logs.append(self.opt.results_realization[t])
-                # logs.append({
-                #     'timestamp': t,
-                #     'soe_old': soe,
-                #     'soe_new': soe_new,
-                #     'decision': decision,
-                #     'grid': result['grid'],
-                #     'gt': gt,
-                #     'c_buy': result['c_buy'],
-                #     'c_sell': result['c_sell'],
-                #     'building': self.building
-                # })
-
-                #soe = soe_new
-
-                #print("logs:", logs[-1])  # Debugging output
 
             t_now = t_next
 
-        return pd.DataFrame(logs)
-                    
-
-
-
+        return pd.DataFrame(logs).set_index('timestamp')
 
 
 
