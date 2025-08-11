@@ -220,4 +220,5 @@ __marimo__/
 
 # ignore the created optimization files
 03_optimization/runs/
+mlruns/
 

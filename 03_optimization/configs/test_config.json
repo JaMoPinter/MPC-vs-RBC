@@ -1,5 +1,5 @@
 {
-    "run_name": "Test Experiment",
+    "mlflow_experiment_name": "Interval Scheduling",
 
     "forecasts": {
         "model": "AutoKANHOURLYTEST",
