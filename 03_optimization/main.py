@@ -17,6 +17,9 @@ from utils import map_costs_to_timestamps
 from optimization.simulation_engine import SimulationEngine
 
 from evaluation.evaluator import Evaluator
+from evaluation.multi_run_evaluator import MultiRunEvaluator
+
+from pathlib import Path
 
 
 def main(config_path: str):
@@ -97,8 +100,8 @@ def main(config_path: str):
                 # prices and df most likely do not have the same index. df_run is likely to have a higer resolution
                 # each row in df_run should get the correct price from prices. Here eg 01:15 should get the price at the closest 
                 # time. Ideally also at 01:15, otherwise the price at 01:00 but never the price at 01:30
-                df_run['c_buy'] = prices['import_price'].reindex(df_run.index, method='ffill')
-                df_run['c_sell'] = prices['export_price'].reindex(df_run.index, method='ffill')
+                df_run['import_price'] = prices['import_price'].reindex(df_run.index, method='ffill')
+                df_run['export_price'] = prices['export_price'].reindex(df_run.index, method='ffill')
 
                 results.append(df_run)
 
@@ -110,10 +113,17 @@ def main(config_path: str):
                 out_path = f"03_optimization/runs/logs_{timestamp}_op-{opt_name}_freq-{mpc_freq}_building-{b}.csv" # TODO: Should I also log the prices here?
                 df_run.to_csv(out_path, index=True)
 
+    all_csv = Path("03_optimization/runs").glob(f"logs_{timestamp}_*.csv")
+    mre = MultiRunEvaluator(run_paths=all_csv)
+
+    print("\n\n==== Pivot table ====\n")
+    print(mre.pivot().to_string())
+
+    print("\n\n==== Net-cost leaderboard ====\n")
+    print(mre.leaderboard().to_string(index=False))
 
 
 
-  
 
 if __name__ == "__main__":
     #import sys

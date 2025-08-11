@@ -13,7 +13,7 @@
         "buildings": ["SFH3"],
         "models": ["interval", "rule-based"],
         "start_time": "2020-05-13T07:00:00+00:00",
-        "end_time": "2020-05-13T20:00:00+00:00",
+        "end_time": "2020-05-13T10:00:00+00:00",
         "gt_freq": 15,
         "mpc_update_freq": [60],
         "mpc_horizon": 24,

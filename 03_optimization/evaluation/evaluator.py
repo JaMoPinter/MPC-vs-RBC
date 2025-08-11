@@ -32,12 +32,18 @@ class Evaluator:
             if 'timestamp' in self.prices.columns:
                 self.prices.set_index('timestamp', inplace=True)
             self.prices.index = pd.to_datetime(self.prices.index)
-        elif {"c_buy", "c_sell"}.issubset(self.df.columns):
+        elif {"import_price", "export_price"}.issubset(self.df.columns):
             # attach implicit prices (already applied in SimulationEngine)
-            self.prices = self.df[["timestamp", "c_buy", "c_sell"]].set_index("timestamp")
+            if 'timestamp' in self.df.columns:
+                self.prices = self.df[["timestamp", "import_price", "export_price"]].set_index("timestamp")
+            self.prices = self.df[["import_price", "export_price"]].copy()
         else:
             self.prices = None
 
+        # get the total timespan of operation in hours
+        self.total_timespan = (self.df.index[-1] - self.df.index[0]).total_seconds() / 3600
+        self.t_start = self.df.index[0]
+        self.t_end = self.df.index[-1]
 
     def get_costs(self) -> dict:
         """ Calculates the total energy costs/revenue of the optimization results. """

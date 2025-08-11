@@ -32,8 +32,11 @@ class MultiRunEvaluator:
             ev = Evaluator(path)
 
             costs_summary = ev.get_costs()
-            records.append({**meta, **costs_summary})
+            records.append({'t_start': ev.t_start, 't_end': ev.t_end, 'total_timespan': ev.total_timespan, **meta, **costs_summary})
 
+            # ev has a class variable called total timespan. I want to include in in the records
+
+        print("self.run_paths:", self.run_paths)
         if not records:
             raise ValueError("No valid run files found.")
         
@@ -42,3 +45,20 @@ class MultiRunEvaluator:
         #self.df.set_index('timestamp', inplace=True)
 
 
+    def leaderboard(self, by="net_cost") -> pd.DataFrame:
+        """ Returns a leaderboard of the runs sorted by the specified metric. """
+
+        cols = ["model", "building", "freq", "t_start", "t_end", by]
+
+        return self.df[cols].sort_values(by, ignore_index=True)
+    
+
+    def pivot(self, value="net_cost") -> pd.DataFrame:
+        """
+        Matrix: rows=building, cols=model/freq, filled with *value* metric.
+        """
+        return self.df.pivot_table(
+            index="building",
+            columns=["model", "freq"],
+            values=value,
+        )
