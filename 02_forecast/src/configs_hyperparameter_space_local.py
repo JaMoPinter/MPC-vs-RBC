@@ -15,10 +15,10 @@ from datetime import datetime
 BATCH_SIZE = 1                   # One time series → one batch
 MAX_EPOCHS = 10000                   # Used as max_steps due to batch-based training
 RANDOM_SEED = 123456789
-NUM_SAMPLES = 150             # Number of samples for hyperparameter tuning
+NUM_SAMPLES = 250             # Number of samples for hyperparameter tuning
 
 BASE_PATH_DATA = 'GermanBuildingData/01_data/prosumption_data'
-BASE_RESULTS_PATH = 'GermanBuildingData/02_forecast/results'
+BASE_RESULTS_PATH = 'GermanBuildingData/02_forecast/mount/storage_quantile_fc'
 
 RESOLUTION = 15  # in minutes
 HORIZON = int(24 * 60 / RESOLUTION)        # 24 hours forecast horizon
@@ -35,10 +35,12 @@ config_kan.update({
     "input_size": tune.choice([HORIZON * 3, HORIZON * 7]),
     "max_steps": tune.choice([MAX_EPOCHS]),
     "windows_batch_size": tune.choice([64, 128]),
+    "spline_order": tune.choice([2, 3, 4, 5, 6]),
+    "grid_size": tune.choice([1, 3, 5, 10, 15]),
     "batch_size": tune.choice([BATCH_SIZE]),
     "val_check_steps": tune.choice([10]),
     "early_stop_patience_steps": tune.choice([5]),
-    "hidden_size": tune.choice([64, 128]),
+    "hidden_size": tune.choice([32 , 64, 128 , 256, 512]),
     "random_seed": RANDOM_SEED,
 })
 del config_kan["input_size_multiplier"]
