@@ -1,5 +1,6 @@
+import time
 from ..base import BaseOptimizer
-from utils import simpsons_rule, cdf_formula, pdf_formula
+from utils import simpsons_rule, cdf_formula, pdf_formula, dynamic_bounds, pdf_formula_numpy
 
 import pandas as pd
 import numpy as np
@@ -15,8 +16,8 @@ class IntervalOptimizer(BaseOptimizer):
 
         self.cdf = cdf_formula(self.param_assumption)
         self.pdf = pdf_formula(self.param_assumption)
-        #self.c_buy_long = None  # TODO:  Initialize once in __init__ in base class => Here only take the needed values 
-        #self.c_sell_long = None  # TODO: Initialize once in __init__ in base class => Here only take the needed values 
+        self.pdf_numpy = pdf_formula_numpy(self.param_assumption)
+
 
 
 
@@ -45,7 +46,8 @@ class IntervalOptimizer(BaseOptimizer):
         self.model.e0 = pyo.Param(self.model.time_e0, initialize=self.soe_now)  # TODO: self.soe_initial ok?
         self.model.pdf_weights = pyo.Param(self.model.time, initialize=self.pdf_weights, domain=pyo.Any) 
 
-        # TODO: Add dynamic bounds for pdf integration
+        self.model.dynamic_bound_low = pyo.Param(self.model.time, initialize=self.dynamic_bound_low)  
+        self.model.dynamic_bound_high = pyo.Param(self.model.time, initialize=self.dynamic_bound_high)
 
         # Interval widths
         self.y_width = self._get_interval_width(probabilities_of_interval=[0.25, 0.75])
@@ -241,12 +243,12 @@ class IntervalOptimizer(BaseOptimizer):
 
         def constr_pg_exp_sell(model, t):
             ''' pg_exp_sell[t] = INTEGRAL[z*pdf(weights[t], z+y_low[t])] bounds=[-inf, 0]'''  # TODO: Maybe use historical minimum as integration bound? Does that cause issues since the pdf tails might be too long?
-            return model.pg_exp_sell[t] == simpsons_rule(self.XXX_low_bound, 0, n=200, pdf=self.pdf, weights=model.pdf_weights[t], offset=model.y_low[t])  # TODO: Code dynamic bounds
+            return model.pg_exp_sell[t] == simpsons_rule(model.dynamic_bound_low[t], 0, n=200, pdf=self.pdf, weights=model.pdf_weights[t], offset=model.y_low[t])  # TODO: Code dynamic bounds
         self.model.constr_pg_exp_sell = pyo.Constraint(self.model.time, rule=constr_pg_exp_sell)
 
         def constr_pg_exp_buy(model, t):
             ''' pg_exp_buy[t] = INTEGRAL[z*pdf(weights[t], z+y_high[t])] bounds=[0, inf]'''  # TODO: Maybe use historical maximum as integration bound? Does that cause issues since the pdf tails might be too long?
-            return model.pg_exp_buy[t] == simpsons_rule(0, self.XXX_high_bound, n=200, pdf=self.pdf, weights=model.pdf_weights[t], offset=model.y_high[t])  # TODO: Code dynamic bounds
+            return model.pg_exp_buy[t] == simpsons_rule(0, model.dynamic_bound_high[t], n=200, pdf=self.pdf, weights=model.pdf_weights[t], offset=model.y_high[t])  # TODO: Code dynamic bounds
         self.model.constr_pg_exp_buy = pyo.Constraint(self.model.time, rule=constr_pg_exp_buy)
 
 
@@ -329,8 +331,8 @@ class IntervalOptimizer(BaseOptimizer):
 
         self.pdf_weights = fc_slice.apply(lambda row: row.tolist(), axis=1)
 
-        print("self.pdf_weights:", self.pdf_weights)
-        print("type self.pdf_weights:", type(self.pdf_weights))
+        # print("self.pdf_weights:", self.pdf_weights)
+        # print("type self.pdf_weights:", type(self.pdf_weights))
 
         # This function needs to be called iteratively. With each call, the fc_slice changes. Thus we also need to build
         # the model again with the new fc_slice! What we can store here in this class are the results of the optimization.
@@ -342,10 +344,21 @@ class IntervalOptimizer(BaseOptimizer):
 
         #self._build_model()
 
+        
 
 
-        self.XXX_low_bound = -15.0  # TODO: Code dynamic bounds
-        self.XXX_high_bound = 15.0  # TODO: Code dynamic bounds
+
+
+        self.lowest_bound = -18.0
+        self.highest_bound = 18.0
+
+        self.dynamic_bound_low, self.dynamic_bound_high = dynamic_bounds((self.lowest_bound, self.highest_bound), self.pdf_numpy, self.fc_slice)
+
+
+
+
+
+
 
         self.c_buy = self.c_buy_long[self.time_index]  # TODO: Take the needed values from self.c_buy_long based on the time_index
         self.c_sell = self.c_sell_long[self.time_index]  # TODO: Get vals from self.c_sell_long

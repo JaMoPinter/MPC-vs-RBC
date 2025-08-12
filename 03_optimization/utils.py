@@ -104,6 +104,20 @@ def pdf_formula(name):
 
 
 
+def pdf_formula_numpy(name):
+    ''' Returns the PDF formula for the specified distribution. '''
+    if name == 'normal':
+        return lambda x, mu, sig: 1 / (sig * np.sqrt(2 * pi)) * np.exp(-0.5 * ((x - mu) / sig)**2)
+    
+    elif name == 'sum-2-logistic-distributions':
+        return lambda x, w1, w2, w3, w4, w5, w6: w1 * w2 * np.exp(-w2 * (x - w3)) / (1 + np.exp(-w2 * (x - w3)))**2 + w4 * w5 * np.exp(-w5 * (x - w6)) / (1 + np.exp(-w5 * (x - w6)))**2
+    
+    elif name == 'sum2gaussian':
+        return lambda x, w1, mu1, sig1, w2, mu2, sig2: w1 / (sig1 * np.sqrt(2 * pi)) * np.exp(-0.5 * ((x - mu1) / sig1)**2) + w2 / (sig2 * np.sqrt(2 * pi)) * np.exp(-0.5 * ((x - mu2) / sig2)**2) 
+
+    else:
+        raise ValueError(f'PDF formula {name} not recognized')
+
 
 
 
@@ -168,48 +182,53 @@ def load_chunks(path, t_start, t_end, filter_col,parse_dates=None, chunksize=100
     return df
 
 
-def map_costs_to_timestamps(costs: dict) -> pd.DataFrame:
-    """ Maps costs from config to timestamp-costs tuples. Assume TOU tariffs for now, i.e., all days follow the same
-    cost pattern (e.g. 00-08: A€, 08-12: B€, 12-16: C€, 16-00: X€). 
+
+def dynamic_bounds(bounds, pdf_formula, weights):
+    """
+    Compute dynamic bounds to minimize errors when integrating the pdfs. Each time step has a different pdf shape
+    and therefore different bounds are used for the integration bounds.
 
     Args:
-        costs (dict): A dictionary containing the costs for buying and selling energy. The structure should be:
-            {
-                "c_buy": {
-                    "default": float,  # Default cost for buying energy
-                    "extra": {  # Extra costs for specific hours
-                        "hour X": float,  # Cost for buying energy at hour X
-                    }
-                },
-                "c_sell": {
-                    "default": float,  # Default cost for selling energy
-                    "extra": {  # Extra costs for specific hours
-                        "hour Y": float,  # Cost for selling energy at hour Y
-                    }
-                }
-            }
+    bounds (tuple): lower and upper integration bounds (static, should be conservative)
+    pdf_formula (callable): the PDF function to be integrated
+    weights (pd.DataFrame): weights for the PDF formula at each time step
 
+    Returns:
+        (low_bounds, high_bounds) as pd.Series aligned to weights.index
+    '''
     """
 
-    # TODO: Need to implement cost mapping for sub-hourly timestamps. Do I?
+    x = np.linspace(bounds[0], bounds[1], 10000)
+    idx = weights.index
 
-    # create a df with 24 entries. The index is the hour of the day, the columns are the costs (c_buy, c_sell)
-    df = pd.DataFrame(index=range(24), columns=costs.keys())
-    df.index.name = 'hour_of_day'
+    low = pd.Series(np.nan, index=idx, dtype=float)
+    high = pd.Series(np.nan, index=idx, dtype=float)
 
+    for t, row in weights.iterrows():
+        params = row.values
+        # Evaluate PDF on the full grid in a numerically tolerant way
+        with np.errstate(over='ignore', under='ignore', invalid='ignore'):
+            y = pdf_formula(x, *params)
 
-    # fill the df with the default costs
-    for cost_type, cost_values in costs.items():
-        if 'default' in cost_values:
-            df[cost_type] = cost_values['default']
-        
-    # fill the df with the extra costs
-    for cost_type, cost_values in costs.items():
-        if 'extra' in cost_values:
-            for hour, value in cost_values['extra'].items():
-                hour_index = int(hour.split(' ')[-1])  # Extract the hour from "hour X"
-                df.at[hour_index, cost_type] = value
+        # Replace non-finite with 0 (so they don't count as above threshold)
+        y = np.where(np.isfinite(y), y, 0.0)
 
-    
-    return df
+        mask = y > 1e-8
+        if not np.any(mask):
+            # Fallback: keep the original static bounds
+            low.loc[t] = bounds[0]
+            high.loc[t] = bounds[1]
+            continue
 
+        # First and last indices above threshold
+        i0 = np.argmax(mask)  # leftmost True
+        i1 = len(mask) - 1 - np.argmax(mask[::-1])  # rightmost True
+
+        # Take the values before surpassing the threshold 1e-8
+        lb_idx = max(i0 - 1, 0)
+        ub_idx = min(i1 + 1, len(x) - 1)
+
+        low.loc[t] = x[lb_idx]
+        high.loc[t] = x[ub_idx]
+
+    return low, high
