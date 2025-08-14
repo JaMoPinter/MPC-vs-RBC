@@ -51,10 +51,14 @@ class Evaluator:
         if self.prices is None:
             raise ValueError("Prices data is required to calculate energy costs.")
         
+        if self.df.index.freq is None:
+            # get the frequency by taking the timestamp stored in index of two rows
+            self.df.index.freq = pd.infer_freq(self.df.index)
+
         # The prices and df do not have the same resolution. We need to map each row of the df to prices of the latest timestamp.
         # whenever df['pg'] is positive, we buy energy, otherwise we sell it. ffill is forward filling to account for frequency mismatch of prices/df
-        self.df['costs_buy'] = self.df['pg'].clip(lower=0) * self.prices['import_price'].reindex(self.df.index, method='ffill')
-        self.df['costs_sell'] = -self.df['pg'].clip(upper=0) * self.prices['export_price'].reindex(self.df.index, method='ffill')
+        self.df['costs_buy'] = self.df['pg'].clip(lower=0) * self.prices['import_price'].reindex(self.df.index, method='ffill') * pd.Timedelta(self.df.index.freq).total_seconds() / 3600
+        self.df['costs_sell'] = -self.df['pg'].clip(upper=0) * self.prices['export_price'].reindex(self.df.index, method='ffill') * pd.Timedelta(self.df.index.freq).total_seconds() / 3600
 
         # Calculate cashflow
         self.df['cashflow'] = self.df['costs_buy'] - self.df['costs_sell']

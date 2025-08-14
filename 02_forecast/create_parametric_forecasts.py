@@ -3,6 +3,8 @@ import pandas as pd
 from scipy.stats import norm, gaussian_kde
 from scipy.interpolate import interp1d
 from sklearn.mixture import GaussianMixture
+from typing import Optional, Tuple, Iterable, List
+
 import numpy as np
 import os
 import sys
@@ -21,56 +23,134 @@ class ParametricForecasts:
         self.implemented_distributions = ['sum2gaussian']
 
 
-    def load_quantile_forecasts(self, csv_path, timerange=None):
-        """ Load quantile forecasts from the specified path and group them according to their creation timestamp. 
-        
-        
-        Args:
-            csv_path (str): Path to the CSV file containing quantile forecasts.
-            timerange (list, optional): A list with two elements specifying the start and end time for filtering the forecasts.
-        """
+    def load_quantile_forecasts(self, csv_path, timerange=None, chunksize=200_000, include_ptot=False, downcast=True):
 
         self.csv_path = csv_path
 
-        # 1) Load CSV, parse timestamps
-        df = pd.read_csv(
+        # Only read specific columns from disk
+        def _usecols(c: str) -> bool:
+            if c in ("timestamp", "time_fc_created"):
+                return True
+            if c.startswith("quantile_"):
+                return True
+            if include_ptot and c == "P_TOT":
+                return True
+            return False
+        
+        parse_dates = ['timestamp', 'time_fc_created']
+
+        iterator = pd.read_csv(
             csv_path,
-            parse_dates=['timestamp','time_fc_created'],
-            index_col='timestamp'          # if you want 'timestamp' as the DataFrame index
+            usecols=_usecols,
+            parse_dates=parse_dates,
+            memory_map=True,
+            chunksize=chunksize,
+            low_memory=True
         )
 
-        # Change the order of the columns to have P_TOT before quantiles
-        cols = df.columns.tolist()
-    
-        cols = ['P_TOT'] + [col for col in cols if col not in  ['P_TOT']]
-        df = df[cols]
-
-        # remove the quantile_ prefix from the quantile columns
-        df.columns = df.columns.str.replace('quantile_', '', regex=False)
-
-        # 2) Filter by timerange if provided. Keep all rows where 'time_fc_created' is within the specified range.
         if timerange is not None:
-            start_time, end_time = pd.to_datetime(timerange[0]), pd.to_datetime(timerange[1])
-            df = df[(df['time_fc_created'] >= start_time) & (df['time_fc_created'] <= end_time)]
+            start = pd.to_datetime(timerange[0])
+            end   = pd.to_datetime(timerange[1])
+        else:
+            start, end = None, None
+
+        frames: List[pd.DataFrame] = []
+
+        for chunk in iterator:
+            # optional timerange filtering
+            if timerange is not None:
+                mask = (chunk['time_fc_created'] >= start) & (chunk['time_fc_created'] <= end)
+                if not mask.any():
+                    continue
+                chunk = chunk[mask]
+
+            # strip 'quantile_' prefix
+            new_cols = {
+                c: (c.replace("quantile_", "") if c.startswith("quantile_") else c)
+                for c in chunk.columns
+            }
+            chunk.rename(columns=new_cols, inplace=True)
+
+            keep_cols = [c for c in chunk.columns if _is_float_like(c)]
+            if include_ptot and "P_TOT" in chunk.columns:
+                keep_cols.append("P_TOT")
+
+            # set multi-index
+            chunk.set_index(['time_fc_created', 'timestamp'], inplace=True)
+
+            # select quantiles (sorted numerically)
+            qcols = sorted([c for c in keep_cols if c != "P_TOT"], key=float)
+            chunk = chunk[qcols + (["P_TOT"] if include_ptot and "P_TOT" in keep_cols else [])]
+
+            # downcast to float32 if desired
+            if downcast:
+                chunk[qcols] = chunk[qcols].astype("float32", copy=False)
+                if include_ptot and "P_TOT" in chunk:
+                    chunk["P_TOT"] = chunk["P_TOT"].astype("float32", copy=False)
+            frames.append(chunk[keep_cols])
+
+        if not frames:
+            raise ValueError("No data found in the specified timerange or file.")
+        
+        df = pd.concat(frames, axis=0)
+        df.index.set_names(['time_fc_created', 'timestamp'], inplace=True)
+
+        # keep only quantiles in self.quantile_forecasts; drop P_TOT here to save RAM
+        qcols = [c for c in df.columns if _is_float_like(c)]
+        self.quantile_forecasts = df[qcols]
+
+
+
+    # def load_quantile_forecasts2(self, csv_path, timerange=None):
+    #     """ Load quantile forecasts from the specified path and group them according to their creation timestamp. 
+        
+        
+    #     Args:
+    #         csv_path (str): Path to the CSV file containing quantile forecasts.
+    #         timerange (list, optional): A list with two elements specifying the start and end time for filtering the forecasts.
+    #     """
+
+    #     self.csv_path = csv_path
+
+    #     # 1) Load CSV, parse timestamps
+    #     df = pd.read_csv(
+    #         csv_path,
+    #         parse_dates=['timestamp','time_fc_created'],
+    #         index_col='timestamp'          # if you want 'timestamp' as the DataFrame index
+    #     )
+
+    #     # Change the order of the columns to have P_TOT before quantiles
+    #     cols = df.columns.tolist()
+    
+    #     cols = ['P_TOT'] + [col for col in cols if col not in  ['P_TOT']]
+    #     df = df[cols]
+
+    #     # remove the quantile_ prefix from the quantile columns
+    #     df.columns = df.columns.str.replace('quantile_', '', regex=False)
+
+    #     # 2) Filter by timerange if provided. Keep all rows where 'time_fc_created' is within the specified range.
+    #     if timerange is not None:
+    #         start_time, end_time = pd.to_datetime(timerange[0]), pd.to_datetime(timerange[1])
+    #         df = df[(df['time_fc_created'] >= start_time) & (df['time_fc_created'] <= end_time)]
 
         
         
-        # 2) Group by the forecast‐creation time
-        groups = {
-            created_time: group.copy()
-            for created_time, group in df.groupby('time_fc_created')
-        }
+    #     # 2) Group by the forecast‐creation time
+    #     groups = {
+    #         created_time: group.copy()
+    #         for created_time, group in df.groupby('time_fc_created')
+    #     }
         
-        self.quantile_forecasts = {}
+    #     self.quantile_forecasts = {}
 
-        for created_time, subdf in groups.items():
-            subdf = subdf.drop(columns=['time_fc_created'])
-            self.quantile_forecasts[created_time] = subdf
+    #     for created_time, subdf in groups.items():
+    #         subdf = subdf.drop(columns=['time_fc_created'])
+    #         self.quantile_forecasts[created_time] = subdf
 
 
-        self.quantile_forecasts = pd.concat(self.quantile_forecasts, axis=0, names=['time_fc_created', 'timestamp'])
-        # drop the 'building' and 'P_TOT' columns from the quantile forecasts
-        self.quantile_forecasts = self.quantile_forecasts.drop(columns=['P_TOT'])
+    #     self.quantile_forecasts = pd.concat(self.quantile_forecasts, axis=0, names=['time_fc_created', 'timestamp'])
+    #     # drop the 'building' and 'P_TOT' columns from the quantile forecasts
+    #     self.quantile_forecasts = self.quantile_forecasts.drop(columns=['P_TOT'])
         
 
     def load_parametric_forecasts(self, csv_path, name='sum2gaussian'):
@@ -162,6 +242,187 @@ class ParametricForecasts:
                     sys.stdout.flush()
                     last_percent = percent
 
+    # def fit_sum2gaussian3(self,
+    #                     n_samples: int = 800,
+    #                     reg_covar: float = 1e-6,
+    #                     random_state: int = 42,
+    #                     print_every_percent: int = 5):
+    #     """
+    #     Fit a 2-Gaussian mixture to each row of quantile forecasts
+    #     using inverse-CDF sampling (your original approach), but faster.
+
+    #     Stores columns: ['w1','mu1','std1','w2','mu2','std2']
+    #     """
+    #     rng = np.random.default_rng(random_state)
+
+    #     # --- 0) Prepare data once ------------------------------------------------
+    #     # keep only quantile columns (float-like names)
+    #     qcols = sorted(
+    #         [c for c in self.quantile_forecasts.columns if _is_float_like(c)],
+    #         key=float
+    #     )
+    #     Qdf = self.quantile_forecasts[qcols]   # already dropped P_TOT earlier
+    #     idx = Qdf.index
+    #     Q = Qdf.to_numpy(dtype=np.float32, copy=False)     # shape (N, K)
+    #     N, K = Q.shape
+    #     alpha = np.array([float(c) for c in qcols], dtype=np.float32)  # (K,)
+
+    #     # --- 1) Precompute uniforms once ----------------------------------------
+    #     U = rng.random(n_samples).astype(np.float32)       # (n_samples,)
+
+    #     # --- 2) Preallocate params and a single GMM instance --------------------
+    #     params = np.empty((N, 6), dtype=np.float32)
+    #     gmm = GaussianMixture(
+    #         n_components=2,
+    #         covariance_type="diag",   # 1D -> diag is enough & slightly faster
+    #         reg_covar=reg_covar,
+    #         random_state=random_state,
+    #         max_iter=200,             # tune if needed
+    #         tol=1e-3,                 # tune if needed
+    #         warm_start=True           # reuse last solution as init
+    #     )
+
+    #     # --- 3) Main loop (no groupby, no iterrows) -----------------------------
+    #     processed = 0
+    #     next_print = print_every_percent
+
+    #     for i in range(N):
+    #         # inverse-CDF sample via fast np.interp (no interp1d object)
+    #         x = np.interp(U, alpha, Q[i]).astype(np.float32, copy=False).reshape(-1, 1)
+
+    #         # fit 2-GMM
+    #         gmm.fit(x)
+
+    #         # extract params; sort components by mean (deterministic ordering)
+    #         w  = gmm.weights_.astype(np.float32, copy=False)
+    #         mu = gmm.means_.ravel().astype(np.float32, copy=False)
+    #         cov = gmm.covariances_
+    #         if cov.ndim == 1:
+    #             var = cov.astype(np.float32, copy=False)
+    #         elif cov.ndim == 2:
+    #             var = cov[:, 0].astype(np.float32, copy=False)
+    #         else:
+    #             var = cov[:, 0, 0].astype(np.float32, copy=False)
+    #         std = np.sqrt(np.maximum(var, 1e-12, dtype=np.float32))
+
+    #         order = np.argsort(mu)
+    #         params[i, 0:3] = (w[order[0]], mu[order[0]], std[order[0]])
+    #         params[i, 3:6] = (w[order[1]], mu[order[1]], std[order[1]])
+
+    #         # light progress output
+    #         processed += 1
+    #         pct = (100 * processed) // N
+    #         if pct >= next_print:
+    #             print(f"\rProgress: {pct}% ({processed}/{N})", end="")
+    #             next_print += print_every_percent
+
+    #     print()  # newline after progress
+
+    #     # --- 4) Build the DataFrame once ----------------------------------------
+    #     cols = ['w1', 'mu1', 'std1', 'w2', 'mu2', 'std2']
+    #     self.param_forecasts = pd.DataFrame(params, index=idx, columns=cols)
+
+
+
+    # def fit_sum2gaussian2(
+    #     self,
+    #     n_rep: int = 2000,            # total replicated points per row
+    #     reg_covar: float = 1e-6,      # stabilizes EM on flat quantiles
+    #     random_state: int = 42,
+    #     progress_every: int = 1       # print every N%
+    # ):
+    #     """
+    #     Fit a 2-Gaussian mixture to each row of quantile forecasts using
+    #     *replicated bin midpoints* (no sample_weight).
+
+    #     Stores columns: ['w1','mu1','std1','w2','mu2','std2','expected_value']
+    #     """
+    #     rng = np.random.default_rng(random_state)
+
+    #     # 1) pick quantile columns and make arrays
+    #     qcols = sorted([c for c in self.quantile_forecasts.columns if _is_float_like(c)], key=float)
+    #     Q = self.quantile_forecasts[qcols].to_numpy(dtype=float)   # shape: (N, K)
+    #     N, K = Q.shape
+    #     alpha = np.array([float(c) for c in qcols], dtype=float)   # (K,)
+
+    #     # 2) bin masses and midpoints (include flat tails)
+    #     alpha_ext = np.concatenate(([0.0], alpha, [1.0]))          # (K+2,)
+    #     mass = np.diff(alpha_ext)                                  # (K+1,), sums to 1
+    #     Q_ext = np.concatenate([Q[:, [0]], Q, Q[:, [-1]]], axis=1) # (N, K+2)
+    #     midpoints = 0.5 * (Q_ext[:, :-1] + Q_ext[:, 1:])           # (N, K+1)
+
+    #     params = np.empty((N, 6), dtype=float)
+
+    #     def _extract_params(gmm: GaussianMixture):
+    #         w = gmm.weights_.copy()
+    #         mu = gmm.means_.ravel().copy()
+    #         cov = gmm.covariances_
+    #         if cov.ndim == 1:
+    #             var = cov
+    #         elif cov.ndim == 2:
+    #             var = cov[:, 0]
+    #         else:
+    #             var = cov[:, 0, 0]
+    #         std = np.sqrt(np.maximum(var, 1e-12))
+    #         order = np.argsort(mu)  # sort by mean
+    #         return w[order], mu[order], std[order]
+
+    #     processed, last_percent = 0, -1
+
+    #     for i in range(N):
+    #         # 3) integer replication counts from masses
+    #         raw = mass * n_rep
+    #         base = np.floor(raw).astype(int)
+    #         frac = raw - base
+    #         diff = n_rep - base.sum()
+
+    #         if diff > 0:  # distribute leftover to largest fractions
+    #             order = np.argsort(-frac)
+    #             base[order[:diff]] += 1
+    #         elif diff < 0:  # remove from smallest fractions but keep >=1 if possible
+    #             order = np.argsort(frac)
+    #             j = 0
+    #             to_remove = -diff
+    #             while to_remove > 0 and j < base.size:
+    #                 idx = order[j]
+    #                 if base[idx] > 1:
+    #                     base[idx] -= 1
+    #                     to_remove -= 1
+    #                 else:
+    #                     j += 1
+
+    #         # ensure at least 1 replica per bin with nonzero mass
+    #         base[(mass > 0) & (base == 0)] = 1
+
+    #         X_rep = np.repeat(midpoints[i], base).reshape(-1, 1)
+
+    #         # 4) fit 2-GMM (diag covariance is enough for 1D)
+    #         gmm = GaussianMixture(
+    #             n_components=2,
+    #             covariance_type="diag",
+    #             reg_covar=reg_covar,
+    #             random_state=random_state
+    #         )
+    #         gmm.fit(X_rep)
+
+    #         w, mu, std = _extract_params(gmm)
+    #         params[i, :] = [w[0], mu[0], std[0], w[1], mu[1], std[1]]
+
+    #         processed += 1
+    #         pct = int(100 * processed / N)
+    #         if pct != last_percent and pct % max(1, progress_every) == 0:
+    #             print(f"\rProgress: {pct}% ({processed}/{N})", end="")
+    #             last_percent = pct
+
+    #     cols = ["w1", "mu1", "std1", "w2", "mu2", "std2"]
+    #     self.param_forecasts = pd.DataFrame(params, index=self.quantile_forecasts.index, columns=cols)
+
+
+
+
+
+
+
 
 
 
@@ -181,6 +442,7 @@ class ParametricForecasts:
             current_time = pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M')
             filename = filename.replace('.csv', f'_CreationTime{current_time}.csv')
         directory = os.path.dirname(self.csv_path).replace('storage_quantile_fc', 'storage_param_fc')
+        directory = '/home/ws/fh6281/GermanBuildingDate/02_forecast'
 
         # Ensure the directory exists
         os.makedirs(directory, exist_ok=True)
@@ -206,27 +468,35 @@ class ParametricForecasts:
         print(f"Parametric forecasts saved to {filepath}")
 
 
-
-      
-
     def sort_quantiles(self):
         """ Sort the quantile columns in ascending order for each forecast (each row). """
         print("Sorting quantiles in ascending order…")
 
-        # 1) Identify the quantile columns by whatever naming convention you have:
-        #    Here you used strings like "0.01", "0.02", … so we test for a leading '0.'
-        quant_cols = [c for c in self.quantile_forecasts.columns if c.startswith("0.")]
+        quant_cols = sorted([c for c in self.quantile_forecasts.columns if _is_float_like(c)], key=float)
+        Q = self.quantile_forecasts[quant_cols].to_numpy(copy=False)
 
-        # 2) Extract all the quantile values as a 2D numpy array (shape: n_rows × n_quantiles)
-        arr = self.quantile_forecasts[quant_cols].values
-
-        # 3) Sort each row (axis=1) in-place
-        sorted_arr = np.sort(arr, axis=1)
-
-        # 4) Assign the sorted values back into the same columns
-        #    .loc[:, quant_cols] works regardless of the MultiIndex on the rows
-        self.quantile_forecasts.loc[:, quant_cols] = sorted_arr
+        Q_sorted = np.sort(Q, axis=1)
+        self.quantile_forecasts.loc[:, quant_cols] = Q_sorted
         return self.quantile_forecasts
+
+    # def sort_quantiles2(self):
+    #     """ Sort the quantile columns in ascending order for each forecast (each row). """
+    #     print("Sorting quantiles in ascending order…")
+
+    #     # 1) Identify the quantile columns by whatever naming convention you have:
+    #     #    Here you used strings like "0.01", "0.02", … so we test for a leading '0.'
+    #     quant_cols = [c for c in self.quantile_forecasts.columns if c.startswith("0.")]
+
+    #     # 2) Extract all the quantile values as a 2D numpy array (shape: n_rows × n_quantiles)
+    #     arr = self.quantile_forecasts[quant_cols].values
+
+    #     # 3) Sort each row (axis=1) in-place
+    #     sorted_arr = np.sort(arr, axis=1)
+
+    #     # 4) Assign the sorted values back into the same columns
+    #     #    .loc[:, quant_cols] works regardless of the MultiIndex on the rows
+    #     self.quantile_forecasts.loc[:, quant_cols] = sorted_arr
+    #     return self.quantile_forecasts
 
 
 
@@ -269,7 +539,11 @@ class ParametricForecasts:
         return pd.DataFrame(fc_smoothed, index=df.index, columns=df.columns)
 
                 
-
+def _is_float_like(x) -> bool:
+    try:
+        float(x); return True
+    except Exception:
+        return False
     
         
 

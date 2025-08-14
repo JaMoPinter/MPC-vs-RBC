@@ -1,34 +1,26 @@
 from ..base import BaseOptimizer
-#from interval_optimizer import IntervalOptimizer
+from .interval_optimizer import IntervalOptimizer
 import pyomo.environ as pyo
 
 # Maybe inherit from the IntervalOptimizer. Only needs to have one additional constraint that specifies y_low == y_high
 
-class MpcProbOptimizer(BaseOptimizer):
+
+
+
+class MpcProbOptimizer(IntervalOptimizer):
     
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    def _build_model(self):
+    
 
-        self._define_sets()
-
-        self._define_parameters()
-
-        self._define_decision_variables()
-
-        self._define_constraints()
-
-        # Prohibit interval scheduling
-        self._prohibit_interval_scheduling()
-
-        self._define_objective_function()
+    def _define_interval_constraints(self):
+        def constr_y_width(model, t):
+            ''' y_high[t] - y_low[t] = 0 '''
+            return model.y_high[t] - model.y_low[t] == 0
+        self.model.constr_y_width = pyo.Constraint(self.model.time, rule=constr_y_width)
 
 
-    def _prohibit_interval_scheduling(self):
-        """
-        Prohibit interval scheduling by setting y_low == y_high.
-        """
-        def constr_y_order(model, t):
-            ''' y_low[t] <= y_high[t] '''
-            return model.y_low[t] <= model.y_high[t]
-        self.model.constr_y_order = pyo.Constraint(self.model.time, rule=constr_y_order)
+    # def _get_interval_width(self, probabilities_of_interval):
+    #     return None
