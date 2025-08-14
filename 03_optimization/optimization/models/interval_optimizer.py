@@ -32,6 +32,8 @@ class IntervalOptimizer(BaseOptimizer):
 
         self._define_constraints()
 
+        self._define_interval_constraints()
+
         self._define_objective_function()
 
 
@@ -51,7 +53,8 @@ class IntervalOptimizer(BaseOptimizer):
 
         # Interval widths
         self.y_width = self._get_interval_width(probabilities_of_interval=[0.25, 0.75])
-        self.model.y_width = pyo.Param(self.model.time, initialize=self.y_width, domain=pyo.NonNegativeReals)  # width of the interval [y_low, y_high] for each time step
+        if self.y_width is not None:
+            self.model.y_width = pyo.Param(self.model.time, initialize=self.y_width, domain=pyo.NonNegativeReals)  # width of the interval [y_low, y_high] for each time step
 
 
     def _define_decision_variables(self): 
@@ -212,10 +215,6 @@ class IntervalOptimizer(BaseOptimizer):
             return model.y_low[t] <= model.y_high[t]
         self.model.constr_y_order = pyo.Constraint(self.model.time, rule=constr_y_order)
 
-        def constr_y_width(model, t):
-            ''' y_high[t] - y_low[t] = y_width[t] '''
-            return model.y_high[t] - model.y_low[t] == model.y_width[t]
-        self.model.constr_y_width = pyo.Constraint(self.model.time, rule=constr_y_width)
 
 
 
@@ -250,6 +249,15 @@ class IntervalOptimizer(BaseOptimizer):
             ''' pg_exp_buy[t] = INTEGRAL[z*pdf(weights[t], z+y_high[t])] bounds=[0, inf]'''  # TODO: Maybe use historical maximum as integration bound? Does that cause issues since the pdf tails might be too long?
             return model.pg_exp_buy[t] == simpsons_rule(0, model.dynamic_bound_high[t], n=200, pdf=self.pdf, weights=model.pdf_weights[t], offset=model.y_high[t])  # TODO: Code dynamic bounds
         self.model.constr_pg_exp_buy = pyo.Constraint(self.model.time, rule=constr_pg_exp_buy)
+
+
+    def _define_interval_constraints(self):
+        ''' Separated interval constraints to allow an easy overwriting in child-classes. '''
+        def constr_y_width(model, t):
+            ''' y_high[t] - y_low[t] = y_width[t] '''
+            return model.y_high[t] - model.y_low[t] == model.y_width[t]
+        self.model.constr_y_width = pyo.Constraint(self.model.time, rule=constr_y_width)
+
 
 
 
@@ -315,7 +323,7 @@ class IntervalOptimizer(BaseOptimizer):
         #solver.options['tol'] = 1e-8            
         #solver.options['acceptable_tol'] = 1e-8 
         #solver.options['max_step'] = 1e-1 
-        solver.options['max_iter'] = 5000
+        solver.options['max_iter'] = 8000
         result = solver.solve(self.model, tee=True)
         return result
     

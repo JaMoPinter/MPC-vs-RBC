@@ -69,8 +69,8 @@ class SimulationEngine:
                 logs.append(self.opt.results_realization[t])
 
             t_now = t_next
-
-        return pd.DataFrame(logs).set_index('timestamp')
-
-
-
+        
+        df_run = pd.DataFrame(logs).set_index('timestamp')
+        # set the frequency
+        df_run = df_run.asfreq(self.gt_delta)
+        return df_run
