@@ -23,6 +23,7 @@ from ray.tune.search.optuna import OptunaSearch
 
 # Importing the custom configurations
 from configs_hyperparameter_space_local import (
+    RESOLUTION,
     HORIZON,
     RANDOM_SEED,
     BASE_PATH_DATA,
@@ -83,172 +84,200 @@ def data_readin(resolution, building):
     return data
 
 
+import numpy as np
+import torch
+import random
+import os
+
+def set_deterministic(
+    enable: bool = True, seed: int = 0, cublas_ws_config: str = ":4096:8", fill_uninitialized_memory: bool = True
+) -> None:
+    """Reduce randomness and enable the most deterministic possible execution
+    """
+    if enable:
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(mode=True)
+        torch.utils.deterministic.fill_uninitialized_memory = fill_uninitialized_memory
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = cublas_ws_config
+
+
 
 #
 # main method
 #
 if __name__ == "__main__":
 
-    for RESOLUTION in [60, 15, 30]:  # Resolution according to priotity
+    # seed randomness out of the processs
+    set_deterministic()
+
+
         
-        print(f"Processing data for resolution: {RESOLUTION} minutes")
+    print(f"Processing data for resolution: {RESOLUTION} minutes")
     
-        for building in BUILDINGS:
+    for building in BUILDINGS:
 
-            output_dir = f"{BASE_RESULTS_PATH}/{building}/{TIME_STAMP}"
-            os.makedirs(output_dir, exist_ok=True)
-            # tuner directory
-            tuner_dir = f"{BASE_RESULTS_PATH}/{building}/{TIME_STAMP}/tuner"
+        output_dir = f"{BASE_RESULTS_PATH}/{building}/{TIME_STAMP}"
+        os.makedirs(output_dir, exist_ok=True)
+        # tuner directory
+        tuner_dir = f"{BASE_RESULTS_PATH}/{building}/{TIME_STAMP}/tuner"
 
 
-            #
-            # 0. DATA PREPARATION
-            #
+        #
+        # 0. DATA PREPARATION
+        #
 
-            #
-            # Data readin routine
-            #
+        #
+        # Data readin routine
+        #
 
-            prosumption_building = data_readin(RESOLUTION, building)
-            print(f"Data for building {building} loaded successfully.")
+        prosumption_building = data_readin(RESOLUTION, building)
+        print(f"Data for building {building} loaded successfully.")
 
-            #
-            # adjust the ranges of the data for the specific dataset
-            #
+        #
+        # adjust the ranges of the data for the specific dataset
+        #
 
-            start_date = prosumption_building.index[0]
-            end_date = prosumption_building.index[-1]
+        start_date = prosumption_building.index[0]
+        end_date = prosumption_building.index[-1]
 
-            # First year of data is used for training
-            
-            train_start = start_date
-            train_end = start_date + pd.DateOffset(years=1)  # 1 year of training data
-            train_steps = int((train_end - train_start).total_seconds() / (RESOLUTION * 60))
-
-            # Validation data is the next year after training
-            validation_start = train_end + pd.DateOffset(minutes=RESOLUTION)
-            validation_end = validation_start + pd.DateOffset(years=1)  # 1 year of validation data 
-            val_steps = int((validation_end - validation_start).total_seconds() / (RESOLUTION * 60)) 
-
-            # rest of the data is used for testing
-            test_start = validation_end + pd.DateOffset(minutes=RESOLUTION)
-            test_end = end_date
-            test_steps = int((test_end - test_start).total_seconds() / (RESOLUTION * 60))
-
-            print(f"Training data from {train_start} to {train_end} with {train_steps} steps")
-            print(f"Validation data from {validation_start} to {validation_end} with {val_steps} steps")
-            print(f"Test data from {test_start} to {test_end} with {test_steps} steps")
-
-            # get the data into form for training and neuralforecaster 
-
-            # Create DataFrame with proper format for neuralforecast
-            df = pd.DataFrame({
-                'ds': prosumption_building.index,  # Timestamps
-                'y': prosumption_building['P_TOT'],  # Scaled target variable
-                'unique_id': building  # Unique identifier for different time series
-            })
+        # First year of data is used for training
         
+        train_start = start_date
+        train_end = start_date + pd.DateOffset(years=1)  # 1 year of training data
+        train_steps = int((train_end - train_start).total_seconds() / (RESOLUTION * 60))
 
-            print(f"DataFrame for building {building} created with shape: {df.shape}")
+        # Validation data is the next year after training
+        validation_start = train_end + pd.DateOffset(minutes=RESOLUTION)
+        validation_end = validation_start + pd.DateOffset(years=1)  # 1 year of validation data 
+        val_steps = int((validation_end - validation_start).total_seconds() / (RESOLUTION * 60)) 
 
-            #
-            # Check for missing values
-            #
+        # rest of the data is used for testing
+        test_start = validation_end + pd.DateOffset(minutes=RESOLUTION)
+        test_end = end_date
+        test_steps = int((test_end - test_start).total_seconds() / (RESOLUTION * 60))
 
-            if df.isnull().values.any():
-                print(f"Warning: Missing values found in the data for building {building}. Filling missing values with forward fill method.")
-                filled_mask = df.isna() & df.ffill().notna()
-                filled_mask = filled_mask["y"]
-                df.fillna(method='ffill', inplace=True)
-            else:
-                print(f"No missing values found in the data for building {building}. No filling needed.")
-                filled_mask = pd.Series(False, index=df.index)
-                
+        print(f"Training data from {train_start} to {train_end} with {train_steps} steps")
+        print(f"Validation data from {validation_start} to {validation_end} with {val_steps} steps")
+        print(f"Test data from {test_start} to {test_end} with {test_steps} steps")
 
+        # get the data into form for training and neuralforecaster 
 
-            #
-            # generate the quantile forecasts
-            #
+        # Create DataFrame with proper format for neuralforecast
+        df = pd.DataFrame({
+            'ds': prosumption_building.index,  # Timestamps
+            'y': prosumption_building['P_TOT'],  # Scaled target variable
+            'unique_id': building  # Unique identifier for different time series
+        })
+    
 
-            # Split into train and validation
-            df_train = df[df['ds'] <= validation_end]
-            len_train = len(df_train)
-            print(f"Training data shape: {df_train.shape}")
+        print(f"DataFrame for building {building} created with shape: {df.shape}")
 
-            # reset index 
-            df_train.reset_index(drop=True, inplace=True)
+        #
+        # Check for missing values
+        #
 
-            # Define TFT model with adjusted settings
-            quantiles = [np.round(i,2) for i in np.arange(0.01, 1, 0.01)]
-
-
-            #
-            # 1. Initialize NeuralForecast with models and hyperparameter search and train
-            #
-
-            # Initialize models with hyperparameter search
-
-            search_algorithm = OptunaSearch(seed=RANDOM_SEED, metric="loss", mode="min")
-
-            models = [
-            AutoKAN(h=HORIZON, loss=MQLoss(quantiles=quantiles), num_samples=NUM_SAMPLES, config=config_kan, valid_loss=MQLoss(quantiles=quantiles), search_alg=search_algorithm)
-            ]
-
-            # Initialize NeuralForecast with all models
-            nf = NeuralForecast(models=models, freq=f'{RESOLUTION}min')
-            df_results = nf.cross_validation(df, step_size=1, val_size=val_steps, test_size=test_steps, n_windows=None)
-
-
-            #
-            # --- 2. Extract best configs from hyperparameter search results and the predictions ---
-            # 
+        if df.isnull().values.any():
+            print(f"Warning: Missing values found in the data for building {building}. Filling missing values with forward fill method.")
+            filled_mask = df.isna() & df.ffill().notna()
+            filled_mask = filled_mask["y"]
+            df.fillna(method='ffill', inplace=True)
+        else:
+            print(f"No missing values found in the data for building {building}. No filling needed.")
+            filled_mask = df.isna() & df.ffill().notna()
+            filled_mask = filled_mask["y"]
             
-            best_configs = []
 
-            for model in nf.models:
-                model_name = model.__class__.__name__
 
-                # Get and save all results
-                results_df = model.results.get_dataframe()
-                results_df = results_df.sort_values("loss", ascending=True)
+        #
+        # generate the quantile forecasts
+        #
 
-                results_path = f"{output_dir}/results_hyper_{TIME_STAMP}_{building}_{model_name}.csv"
-                results_df.to_csv(results_path)
+        # Split into train and validation
+        df_train = df[df['ds'] <= validation_end]
+        len_train = len(df_train)
+        print(f"Training data shape: {df_train.shape}")
 
-                print(f"Hyperparameter results saved to {results_path}")
+        # reset index 
+        df_train.reset_index(drop=True, inplace=True)
 
-                # Extract best config
-                best_config = model.results.get_best_result().config
-                best_configs.append((model.model.__class__, best_config))
+        # Define TFT model with adjusted settings
+        quantiles = [np.round(i,2) for i in np.arange(0.01, 1, 0.01)]
 
-            for model in nf.models:
-                model_name = model.__class__.__name__
-                # Select only the columns for this model (e.g. AutoKAN_0.5, AutoKAN_0.9, ...)
-                model_cols = [col for col in df_results.columns if col.startswith(model_name)]
-                
-                # Join the filled mask to the results DataFrame
-                df_results = df_results.join(filled_mask, on='ds', rsuffix='_filled')
-                base_cols = ['cutoff','ds', 'y', "y_filled"]
 
-                model_df = df_results[base_cols + model_cols].copy()
-                # Rename columns (Janik format)
-                model_df.rename(columns={
-                    'ds': 'timestamp',
-                    'y': 'P_TOT',
-                    'y_filled': 'P_TOT_filled',
-                    'cutoff': 'time_fc_created'
-                }, inplace=True)
+        #
+        # 1. Initialize NeuralForecast with models and hyperparameter search and train
+        #
 
-                model_df['timestamp'] = pd.to_datetime(model_df['timestamp'])
-                model_df['time_fc_created'] += pd.DateOffset(minutes=RESOLUTION)
+        # Initialize models with hyperparameter search
 
-                # Rename quantile columns
-                columns = list(model_df.columns)
-                quantile_names = [f'quantile_{np.round(q, 2)}' for q in quantiles]
-                columns[len(base_cols):len(base_cols) + len(quantile_names)] = quantile_names
-                model_df.columns = columns
+        search_algorithm = OptunaSearch(seed=RANDOM_SEED, metric="loss", mode="min")
 
-                output_file = f"{output_dir}/file_fc_{model_name}_{building}_{TIME_STAMP}_freq{RESOLUTION}.csv"
-                model_df.to_csv(output_file, index=False)
+        models = [
+        AutoKAN(h=HORIZON, loss=MQLoss(quantiles=quantiles), num_samples=NUM_SAMPLES, config=config_kan, valid_loss=MQLoss(quantiles=quantiles), search_alg=search_algorithm)
+        ]
 
-                print(f"Saved results for {model_name} to {output_file}")
+        # Initialize NeuralForecast with all models
+        nf = NeuralForecast(models=models, freq=f'{RESOLUTION}min')
+        df_results = nf.cross_validation(df, step_size=1, val_size=val_steps, test_size=test_steps, n_windows=None)
+
+
+        #
+        # --- 2. Extract best configs from hyperparameter search results and the predictions ---
+        # 
+        
+        best_configs = []
+
+        for model in nf.models:
+            model_name = model.__class__.__name__
+
+            # Get and save all results
+            results_df = model.results.get_dataframe()
+            results_df = results_df.sort_values("loss", ascending=True)
+
+            results_path = f"{output_dir}/results_hyper_{TIME_STAMP}_{building}_{model_name}.csv"
+            results_df.to_csv(results_path)
+
+            print(f"Hyperparameter results saved to {results_path}")
+
+            # Extract best config
+            best_config = model.results.get_best_result().config
+            best_configs.append((model.model.__class__, best_config))
+
+        for model in nf.models:
+            model_name = model.__class__.__name__
+            # Select only the columns for this model (e.g. AutoKAN_0.5, AutoKAN_0.9, ...)
+            model_cols = [col for col in df_results.columns if col.startswith(model_name)]
+            
+            # Join the filled mask to the results DataFrame
+            df_results = df_results.join(filled_mask, on='ds', rsuffix='_filled')
+            base_cols = ['cutoff','ds', 'y', "y_filled"]
+
+            model_df = df_results[base_cols + model_cols].copy()
+            # Rename columns (Janik format)
+            model_df.rename(columns={
+                'ds': 'timestamp',
+                'y': 'P_TOT',
+                'y_filled': 'P_TOT_filled',
+                'cutoff': 'time_fc_created'
+            }, inplace=True)
+
+            model_df['timestamp'] = pd.to_datetime(model_df['timestamp'])
+            model_df['time_fc_created'] += pd.DateOffset(minutes=RESOLUTION)
+
+            # Rename quantile columns
+            columns = list(model_df.columns)
+            quantile_names = [f'quantile_{np.round(q, 2)}' for q in quantiles]
+            columns[len(base_cols):len(base_cols) + len(quantile_names)] = quantile_names
+            model_df.columns = columns
+
+            output_file = f"{output_dir}/file_fc_{model_name}_{building}_{TIME_STAMP}_freq{RESOLUTION}.csv"
+            model_df.to_csv(output_file, index=False)
+
+            print(f"Saved results for {model_name} to {output_file}")

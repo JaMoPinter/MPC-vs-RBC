@@ -15,12 +15,12 @@ from datetime import datetime
 BATCH_SIZE = 1                   # One time series → one batch
 MAX_EPOCHS = 10000                   # Used as max_steps due to batch-based training
 RANDOM_SEED = 123456789
-NUM_SAMPLES = 250             # Number of samples for hyperparameter tuning
+NUM_SAMPLES = 125             # Number of samples for hyperparameter tuning
 
 BASE_PATH_DATA = 'GermanBuildingData/01_data/prosumption_data'
 BASE_RESULTS_PATH = 'GermanBuildingData/02_forecast/mount/storage_quantile_fc'
 
-RESOLUTION = 15  # in minutes
+RESOLUTION = 60  # in minutes
 HORIZON = int(24 * 60 / RESOLUTION)        # 24 hours forecast horizon
 STEPS_YEAR = int(365 * 24 * 60 / RESOLUTION)  # Number of steps for 1 year
 TIME_STAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
