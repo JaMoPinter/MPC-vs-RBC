@@ -6,13 +6,15 @@ class BaseOptimizer(ABC):
     Abstract base class for rolling-horizon optimizers.
     """
 
-    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int,prices, param_assumption: str = None):
+    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, building, param_assumption: str = None):
         """
         Initialize the optimizer.
         """
         self.battery_cfg = battery_cfg
         self.c_buy_long = prices['import_price']  # Import price for a longer than necessary period
         self.c_sell_long = prices['export_price']
+
+        self.b = building
         
         # TODO: Implement here all the parameters that are needed for all the optimizers! 
         self.mpc_freq = mpc_freq  # MPC frequency in minutes

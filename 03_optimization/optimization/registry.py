@@ -4,13 +4,15 @@ from .models.rule_based import RuleBasedOptimizer
 from .models.mpc_det import MpcDetOptimizer
 from .models.mpc_prob import MpcProbOptimizer
 from .models.interval_optimizer import IntervalOptimizer
+from .models.ideal_fc import IdealOptimizer
 
 class OptimizerRegistry:
     _registry = {
         'rule-based': RuleBasedOptimizer,
         'mpc_det': MpcDetOptimizer,
         'mpc_prob': MpcProbOptimizer,
-        'interval': IntervalOptimizer
+        'interval': IntervalOptimizer,
+        'ideal': IdealOptimizer
     }
 
     @classmethod

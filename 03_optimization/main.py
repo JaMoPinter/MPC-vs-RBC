@@ -94,7 +94,7 @@ def main(config_path: str):
                     gt_delta = gt_manager.gt_freq  # Use the GT frequency from the manager
 
 
-                    optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, gt_freq=gt_delta, param_assumption=config['forecasts']['parametric_assumption'], prices=prices)
+                    optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, gt_freq=gt_delta, param_assumption=config['forecasts']['parametric_assumption'], prices=prices, building=b)
                     fc_manager = ForecastManager(building=b, mpc_freq=mpc_freq, loader=fc_loader)
 
 

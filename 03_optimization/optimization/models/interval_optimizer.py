@@ -10,15 +10,13 @@ import pyomo.environ as pyo
 class IntervalOptimizer(BaseOptimizer):
 
 
-    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, param_assumption: str = None):
-        super().__init__(battery_cfg=battery_cfg, mpc_freq=mpc_freq, gt_freq=gt_freq, prices=prices, param_assumption=param_assumption) # only necessary if this class has its own init method
+    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, building, param_assumption: str = None):
+        super().__init__(battery_cfg=battery_cfg, mpc_freq=mpc_freq, gt_freq=gt_freq, prices=prices, building=building, param_assumption=param_assumption) # only necessary if this class has its own init method
 
 
         self.cdf = cdf_formula(self.param_assumption)
         self.pdf = pdf_formula(self.param_assumption)
         self.pdf_numpy = pdf_formula_numpy(self.param_assumption)
-
-
 
 
 
@@ -35,7 +33,6 @@ class IntervalOptimizer(BaseOptimizer):
         self._define_interval_constraints()
 
         self._define_objective_function()
-
 
     
     def _define_sets(self):
@@ -107,7 +104,6 @@ class IntervalOptimizer(BaseOptimizer):
         self.model.constr_e_max = pyo.Constraint(self.model.time_e, rule=constr_e_max)
 
 
-
         def constr_e_exp(model, t):
             ''' e_exp[t] = e_exp[t-1] - pb_exp_ch[t-1] * dt * eta_ch - pb_exp_dis[t-1] * dt / eta_dis '''
             if t == model.time_e.first():
@@ -116,7 +112,6 @@ class IntervalOptimizer(BaseOptimizer):
                 t_prev = model.time_e.prev(t)
                 return model.e_exp[t] == model.e_exp[t_prev] - model.pb_exp_ch[t_prev] * self.t_inc * self.eta_ch - model.pb_exp_dis[t_prev] * self.t_inc / self.eta_dis
         self.model.constr_e_exp = pyo.Constraint(self.model.time_e, rule=constr_e_exp)
-
 
 
 
@@ -140,7 +135,6 @@ class IntervalOptimizer(BaseOptimizer):
             ''' y_high[t] <= power_max'''
             return model.y_high[t] <= self.pb_max
         self.model.constr_y_high_limit = pyo.Constraint(self.model.time, rule=constr_y_high_limit)
-
 
 
 
@@ -217,8 +211,6 @@ class IntervalOptimizer(BaseOptimizer):
 
 
 
-
-
         # Probabilities of not being fully covered by the battery
         def constr_prob_low(model, t):
             ''' prob_low[t] = CDF[t](y_low[t]) '''
@@ -229,7 +221,6 @@ class IntervalOptimizer(BaseOptimizer):
             ''' prob_high[t] = 1 - CDF[t](y_high[t]) '''
             return model.prob_high[t] == 1 - self.cdf(model.y_high[t], *model.pdf_weights[t])
         self.model.constr_prob_high = pyo.Constraint(self.model.time, rule=constr_prob_high)
-
 
 
 
@@ -260,7 +251,6 @@ class IntervalOptimizer(BaseOptimizer):
 
 
 
-
     def _define_objective_function(self):
         def objective(model):
             '''' Minimize the expected costs associated with the grid exchange. To discourage a total discharge
@@ -273,7 +263,6 @@ class IntervalOptimizer(BaseOptimizer):
             #+ c_soe_end * model.e_exp[model.time_e.last()]
             return sum_costs
         self.model.objective = pyo.Objective(rule=objective, sense=pyo.minimize)
-
 
 
 
@@ -313,9 +302,6 @@ class IntervalOptimizer(BaseOptimizer):
         
 
 
-
-
-
     
     def solve(self):
         solver = pyo.SolverFactory('ipopt')
@@ -333,40 +319,15 @@ class IntervalOptimizer(BaseOptimizer):
         print("soe_now:", self.soe_now)
 
         self.fc_slice = fc_slice
-        #print("fc_slice:", self.fc_slice)
         self.fc_slice.index = pd.DatetimeIndex(self.fc_slice.index.get_level_values('timestamp'), freq=str(self.mpc_freq) + 'min')
         self.time_index = fc_slice.index
 
         self.pdf_weights = fc_slice.apply(lambda row: row.tolist(), axis=1)
 
-        # print("self.pdf_weights:", self.pdf_weights)
-        # print("type self.pdf_weights:", type(self.pdf_weights))
-
-        # This function needs to be called iteratively. With each call, the fc_slice changes. Thus we also need to build
-        # the model again with the new fc_slice! What we can store here in this class are the results of the optimization.
-        # The SoE for example can be stored. Also the performed actions at each gt resolution.
-
-        # So what do we need to in init function then? We need to initialize the FIXED values, eg. battery capacity shesh
-        # For the full optimization, those values should not change. 
-        # In here, we initialize the optimization model, solve the model and store results.
-
-        #self._build_model()
-
-        
-
-
-
-
         self.lowest_bound = -18.0
         self.highest_bound = 18.0
 
         self.dynamic_bound_low, self.dynamic_bound_high = dynamic_bounds((self.lowest_bound, self.highest_bound), self.pdf_numpy, self.fc_slice)
-
-
-
-
-
-
 
         self.c_buy = self.c_buy_long[self.time_index]  # TODO: Take the needed values from self.c_buy_long based on the time_index
         self.c_sell = self.c_sell_long[self.time_index]  # TODO: Get vals from self.c_sell_long
@@ -389,18 +350,12 @@ class IntervalOptimizer(BaseOptimizer):
         }
 
         # TODO: Need to log all the results somewhere so that we cann see what the schedule is at a certain time.
-
         return decision
-
-
-
-
 
 
 
     def update_soe(self, t_now, decision, gt):
         
-
         # decision is a dict containing the actions pb_low and pb_high
         pb_low = decision.get('pb_low')
         pb_high = decision.get('pb_high')

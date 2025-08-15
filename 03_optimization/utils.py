@@ -232,3 +232,43 @@ def dynamic_bounds(bounds, pdf_formula, weights):
         high.loc[t] = x[ub_idx]
 
     return low, high
+
+
+
+
+def map_building_to_pv_num_orientation(b):
+    """
+    Maps a building string to the number of PV modules and orientation used. Right now, this is a hardcoded mapping.
+    Once the GT data is changed (eg. change pv orientation or scaling), this function needs to be adapted accordingly!
+
+    Returns
+    -------
+    tuple
+        (num_pv_modules, orientation) with orientation representing the pv orientation, i.e. 'SOUTH', 'EAST', 'WEST'.
+    """
+
+    mapper = {
+        'SFH3': (26, 'SOUTH'),
+        'SFH4': (30, 'SOUTH'),
+        'SFH9': (36, 'SOUTH'),
+        'SFH10': (25, 'SOUTH'),
+        'SFH12': (21, 'SOUTH'),
+        'SFH14': (28, 'SOUTH'),
+        'SFH16': (25, 'EAST'),
+        'SFH18': (16, 'EAST'),
+        'SFH19': (38, 'EAST'),
+        'SFH22': (21, 'EAST'),
+        'SFH27': (20, 'WEST'),
+        'SFH28': (27, 'WEST'),
+        'SFH29': (19, 'WEST'),
+        'SFH30': (18, 'WEST'),
+        'SFH32': (30, 'WEST'),
+        # 'SFH36': (XX, 'XXX'),
+
+    }
+
+    if b not in mapper:
+        raise ValueError(f"Building '{b}' not found in GT mapping. Available buildings: {list(mapper.keys())}")
+    
+    num_pv_modules, orientation = mapper[b]
+    return num_pv_modules, orientation
