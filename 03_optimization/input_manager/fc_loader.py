@@ -35,7 +35,7 @@ class ForecastLoader:
 
     
     def _forecast_path(self, building: str, mpc_freq: int) -> str:
-        path = f'02_forecast/storage_param_fc/file_fc_parametric_{self.fc_model}_{building}_{self.fc_creation_time.strftime('%Y-%m-%d_%H-%M-%S')}_freq{mpc_freq}.csv'
+        path = f"02_forecast/mount/storage_param_fc/{building}/{self.fc_creation_time.strftime('%Y-%m-%d_%H-%M-%S')}/file_fc_parametric_{self.fc_model}_{building}_{self.fc_creation_time.strftime('%Y-%m-%d_%H-%M-%S')}_freq{mpc_freq}.csv"
         return path
 
 
