@@ -23,6 +23,9 @@ class ForecastLoader:
         self.end_time = pd.Timestamp(config['optimization']['end_time'])
         self.minutes = (self.end_time - self.start_time).total_seconds() / 60
 
+        self.op_models = config['optimization']['models']
+        self.only_ideal_model = self.op_models == ['ideal'] # Check if only ideal model is used
+
         self.fc_freq = config['forecasts']['fc_update_freq']
         self.mpc_horizon = config['optimization']['mpc_horizon']
         self.mpc_update_freq = config['optimization']['mpc_update_freq']
@@ -54,6 +57,19 @@ class ForecastLoader:
         """
         Loads all relevant forecasts for a specific building and MPC frequency.
         """
+
+        if self.only_ideal_model:
+            print("\nSkipped loading forecasts since only GT is used as Forecasts")
+            
+            dummy_fc = {}
+            for t0 in self.forecasts_to_load:
+                t1 = t0 + pd.Timedelta(hours=self.mpc_horizon)
+                idx = pd.date_range(start=t0, end=t1, freq=f"{mpc_freq}min", inclusive='left')
+                df = pd.DataFrame({"dummy_col": 0}, index=idx)
+                df.index.name = 'timestamp'
+                dummy_fc[t0] = df
+            return dummy_fc
+
 
         forecasts = {}
         path = self._forecast_path(building, mpc_freq)
@@ -91,6 +107,10 @@ class ForecastLoader:
             - Each forecasting file has the correct frequency.
             - Each forecast covers a time range of at least self.mpc_horizon + self.fc_freq.
         """
+
+        if self.only_ideal_model:
+            print("Skipped forecast validation since only GT is used as Forecasts")
+            return None
 
         for b in self.buildings:
             for mpc_freq in self.mpc_update_freq:

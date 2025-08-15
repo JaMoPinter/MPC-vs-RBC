@@ -36,12 +36,7 @@ class GroundTruthManager:
         self._validate_freq()
 
 
-    def _load_gt(self):
-        # TODO: Resample GT to fit the gt_freq
-        # TODO: Cut the GT data such that not too much unnecessary stuff exists
-        # TODO: Have some logic check to ensure that the gt freq is lower equal to the mpc_freq
-        # TODO: Check that the mpc_freq is a integer multiple of gt_freq
-        
+    def _load_gt(self):        
 
         # Load all gt data for each building
         # Filter the data to the relevant time range. Relevant time range goes from start time to end_time + mpc_horizon
@@ -49,6 +44,8 @@ class GroundTruthManager:
         # Load each building's fine-resolution DataFrame
         for b in self.buildings:
             num_pv_modules, orientation = self.map_building_to_pv_num_orientation(b)
+
+            # Always load 1min data here because we resample in get_gt()
             path = f'01_data/prosumption_data/1min/prosumption_{b}_num_pv_modules_{num_pv_modules}_pv_{orientation}_hp_1.0.csv'
 
 
@@ -96,14 +93,12 @@ class GroundTruthManager:
 
         if key not in self._cache:
             df_fine = self._dfs[building]
-            # e.g. '30min', '60min'
-            rule = f"{self.gt_freq}min"  # TODO: Make this via its own parameter from the config
+            rule = f"{self.gt_freq}min"
 
-            # use mean and linear interpolation for missing values
+            # Resampling based on 1min to eg 15min. 15min values are similar to 15min GT data in 01_data/prosumption_data
             df_rs = (df_fine
-                    .resample(rule)    # TODO: Check this resampling logic. Be aware of possible timestamp shifts!
+                    .resample(rule)   
                     .mean()
-                    #.interpolate(method="time")  # Possibly needed for uneven resampling (e.g. 15min to 35min)
                     )
             self._cache[key] = df_rs
 

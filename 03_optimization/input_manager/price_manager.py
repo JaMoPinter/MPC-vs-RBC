@@ -33,4 +33,7 @@ class PriceManager:
         """
         Get the prices resampled to the MPC frequency.
         """
-        return self.prices.resample(f'{mpc_freq}min').mean()  # TODO: Check if this works properly! Check that the resampling keeps the timestamps aligned.
+        self.prices = self.prices.resample(f'{mpc_freq}min').mean()  # TODO: Check if this works properly! Check that the resampling keeps the timestamps aligned.
+        self.prices = self.prices.ffill()
+
+        return self.prices

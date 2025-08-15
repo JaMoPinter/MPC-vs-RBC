@@ -29,6 +29,7 @@ class ForecastWindow:
             return None
         
         # Otherwise, return the slice of the DataFrame starting from t_now with the length of the MPC horizon
-        print(f"Forecast slice: {self.df.loc[t_now:t_now + timedelta(hours=self.mpc_horizon)]}")
-        return self.df.loc[t_now:t_now + timedelta(hours=self.mpc_horizon)] # .iloc[:-1] for 15min?
+        fc_slice = self.df.loc[t_now:t_now + timedelta(hours=self.mpc_horizon)]
+        print(f"Forecast slice: {fc_slice}")
+        return fc_slice # .iloc[:-1] for 15min?
 
