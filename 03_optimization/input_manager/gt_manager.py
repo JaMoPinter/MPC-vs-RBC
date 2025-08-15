@@ -111,7 +111,7 @@ class GroundTruthManager:
         
         
 
-    def map_building_to_pv_num_orientation(self, b):
+    def map_building_to_pv_num_orientation(self, b): # TODO: Use from Utils
         """
         Maps a building string to the number of PV modules and orientation used. Right now, this is a hardcoded mapping.
         Once the GT data is changed (eg. change pv orientation or scaling), this function needs to be adapted accordingly!
