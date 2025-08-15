@@ -217,6 +217,7 @@ __marimo__/
 02_forecast/storage_param_fc/
 02_forecast/storage_quantile_fc/
 02_forecast/storage_evaluation/
+02_forecast/mount/
 
 # ignore the created optimization files
 03_optimization/runs/
