@@ -32,7 +32,7 @@ class MultiRunEvaluator:
             ev = Evaluator(path)
 
             costs_summary = ev.get_costs()
-            records.append({'t_start': ev.t_start, 't_end': ev.t_end, 'total_timespan': ev.total_timespan, **meta, **costs_summary})
+            records.append({'t_start': ev.t_start, 't_end': ev.t_end, 'total_timespan': ev.total_timespan, **meta, **costs_summary, 'e_end': ev.e_end, 'pg_import_total': ev.pg_import_total, 'pg_export_total': ev.pg_export_total})
 
             # ev has a class variable called total timespan. I want to include in in the records
 
@@ -48,7 +48,7 @@ class MultiRunEvaluator:
     def leaderboard(self, by="net_cost") -> pd.DataFrame:
         """ Returns a leaderboard of the runs sorted by the specified metric. """
 
-        cols = ["model", "building", "freq", "t_start", "t_end", by]
+        cols = ["model", "building", "freq", "t_start", "t_end", "pg_import_total", "pg_export_total", "e_end", by]
 
         return self.df[cols].sort_values(by, ignore_index=True)
     

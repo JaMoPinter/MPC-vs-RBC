@@ -44,6 +44,9 @@ class Evaluator:
         self.total_timespan = (self.df.index[-1] - self.df.index[0]).total_seconds() / 3600
         self.t_start = self.df.index[0]
         self.t_end = self.df.index[-1]
+        self.e_end = round(self.df['soe_new'].iloc[-1], 4) if 'soe_new' in self.df.columns else None
+        self.pg_export_total = self.df['pg'].clip(upper=0).sum()
+        self.pg_import_total = self.df['pg'].clip(lower=0).sum()
 
     def get_costs(self) -> dict:
         """ Calculates the total energy costs/revenue of the optimization results. """
