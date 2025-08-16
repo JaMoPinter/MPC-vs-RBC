@@ -303,15 +303,15 @@ class IntervalOptimizer(BaseOptimizer):
 
 
     
-    def solve(self):
-        solver = pyo.SolverFactory('ipopt')
-        #solver.options['mu_strategy'] = 1       
-        #solver.options['tol'] = 1e-8            
-        #solver.options['acceptable_tol'] = 1e-8 
-        #solver.options['max_step'] = 1e-1 
-        solver.options['max_iter'] = 8000
-        result = solver.solve(self.model, tee=True)
-        return result
+    # def solve(self):
+    #     solver = pyo.SolverFactory('ipopt')
+    #     #solver.options['mu_strategy'] = 1       
+    #     #solver.options['tol'] = 1e-8            
+    #     #solver.options['acceptable_tol'] = 1e-8 
+    #     #solver.options['max_step'] = 1e-1 
+    #     solver.options['max_iter'] = 8000
+    #     result = solver.solve(self.model, tee=True)
+    #     return result
     
 
     def optimize(self, t_now: pd.Timestamp, fc_slice: pd.DataFrame) -> dict:
@@ -340,13 +340,19 @@ class IntervalOptimizer(BaseOptimizer):
 
         result = self.solve()
 
+        # Emergency fallback decision
+        if result is None:
+            pb_fb = self._fallback_decision()
+            return {'pb_low': pb_fb, 'pb_high': pb_fb, 'solver_ok': False, 'error': self.last_solver_error}
+
+
         pb_low = [pyo.value(self.model.y_low[t]) for t in self.model.time]
-        #pb_low = {t: pyo.value(model.y_low[t]) for t in model.time}
         pb_high = [pyo.value(self.model.y_high[t]) for t in self.model.time]
 
         decision = {
             'pb_low': pb_low[0],
-            'pb_high': pb_high[0]
+            'pb_high': pb_high[0],
+            'solver_ok': True
         }
 
         # TODO: Need to log all the results somewhere so that we cann see what the schedule is at a certain time.

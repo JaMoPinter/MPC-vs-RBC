@@ -184,11 +184,11 @@ class MpcDetOptimizer(BaseOptimizer):
         self.model.objective = pyo.Objective(rule=objective, sense=pyo.minimize)
 
 
-    def solve(self):
-        solver = pyo.SolverFactory('ipopt')
-        solver.options['max_iter'] = 5000
-        result = solver.solve(self.model, tee=True)
-        return result
+    # def solve(self):
+    #     solver = pyo.SolverFactory('ipopt')
+    #     solver.options['max_iter'] = 5000
+    #     result = solver.solve(self.model, tee=True)
+    #     return result
 
 
 
@@ -213,8 +213,13 @@ class MpcDetOptimizer(BaseOptimizer):
         # Step 4: Solve the model
         result = self.solve()
 
-        # Step 5: Get and return decision
-        decision = {'pb': [pyo.value(self.model.pb[t]) for t in self.model.time][0]}
+        # Step 5: Emergency fallback decision if solver fails
+        if result is None:
+            pb0 = self._fallback_decision()
+            return {'pb': pb0, 'solver_ok': False, 'error': self.last_solver_error}
+
+        # Step 6: Get and return decision
+        decision = {'pb': [pyo.value(self.model.pb[t]) for t in self.model.time][0], 'solver_ok': True}
         return decision
     
 

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import pandas as pd
+import pyomo.environ as pyo
 
 class BaseOptimizer(ABC):
     """
@@ -95,6 +96,37 @@ class BaseOptimizer(ABC):
         """
         # TODO: What forms can action take? Sometimes it is a float, sometimes action consists of at least two values (e.g., interval optimizer)
         pass
+
+
+    def solve(self):
+        """ Solve the optimization using pyomo and IPOPT. """
+        solver = pyo.SolverFactory('ipopt')
+        solver.options['max_iter'] = 8000
+
+        try: 
+            result = solver.solve(self.model, tee=True)
+        except Exception as e:
+            self.last_solver_error = f'exception: {e!r}'
+            return None
+        
+                # only proceed on proper termination
+        if not pyo.check_optimal_termination(result):
+            tc = getattr(result.solver, 'termination_condition', None)
+            st = getattr(result.solver, 'status', None)
+            self.last_solver_error = f'{st} / {tc}'
+            return None
+
+        self.last_solver_error = None
+        return result
+    
+    def _fallback_decision(self) -> float:
+        """ 
+        Emergency action when the solver fails. Log occurences and see if they can distort the results.
+        
+        Set battery power to zero.
+        """
+        pb = 0.0
+        return pb
 
 
 
