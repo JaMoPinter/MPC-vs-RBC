@@ -66,7 +66,7 @@ class RuleBasedOptimizer(BaseOptimizer):
 
 
         # check if the new state of charge is within limits
-        if soe_new > self.cap_max or soe_new < self.cap_min:  # TODO: Maybe should relax this a bit to tolerate numerical errors?
+        if round(soe_new, 6) > self.cap_max or round(soe_new, 6) < self.cap_min:  # TODO: Maybe should relax this a bit to tolerate numerical errors?
             raise ValueError(f"State of charge out of bounds: {soe_new} kWh. Should be between {self.cap_min} and {self.cap_max} kWh.")        
 
         self.results_realization[t_now] = {
