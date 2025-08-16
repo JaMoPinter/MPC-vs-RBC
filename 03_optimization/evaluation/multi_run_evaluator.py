@@ -10,7 +10,7 @@ FILE_REGEX = re.compile(
     r"logs_(?P<timestamp>[\d\-]+_[\d\-]+)_"   # e.g. 2025-08-07_14-52
     r"op-(?P<model>[\w\-]+)_"                # e.g. rule-based
     r"freq-(?P<freq>\d+)_"                   # e.g. 60
-    r"building-(?P<building>[^.]+)\.csv"     # e.g. SFH3
+    r"building-(?P<building>[^.]+)\_run"     # e.g. SFH3
 )
 class MultiRunEvaluator:
     """ 
@@ -41,16 +41,28 @@ class MultiRunEvaluator:
             raise ValueError("No valid run files found.")
         
         self.df = pd.DataFrame(records)
-        #self.df['timestamp'] = pd.to_datetime(self.df['timestamp'])
-        #self.df.set_index('timestamp', inplace=True)
 
 
-    def leaderboard(self, by="net_cost") -> pd.DataFrame:
+    def leaderboard(self, by="net_cost", per_building=True) -> pd.DataFrame:
         """ Returns a leaderboard of the runs sorted by the specified metric. """
 
-        cols = ["model", "building", "freq", "t_start", "t_end", "pg_import_total", "pg_export_total", "e_end", by]
+        if not per_building:
+            cols = ["model", "building", "freq", "t_start", "t_end", "pg_import_total", "pg_export_total", "e_end", by]
+            return self.df[cols].sort_values(by, ignore_index=True)
 
-        return self.df[cols].sort_values(by, ignore_index=True)
+
+        else:
+            from IPython.display import display
+
+            cols = ["model", "building", "freq", "t_start", "t_end", 
+                    "pg_import_total", "pg_export_total", "e_end", by]
+
+            for b in self.df["building"].unique():
+                df_building = self.df[self.df["building"] == b][cols] \
+                                .sort_values(by, ignore_index=True)
+                print(f"\n🏢 Building: {b}")
+                display(df_building)   
+
     
 
     def pivot(self, value="net_cost") -> pd.DataFrame:

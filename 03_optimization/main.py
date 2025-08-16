@@ -71,8 +71,6 @@ def main(config_path: str):
         mlflow.log_artifact(config_artifact_path, artifact_path="config")
 
 
-        runs_dir = Path("03_optimization/runs")
-        runs_dir.mkdir(parents=True, exist_ok=True)
 
         produced_csvs: list[Path] = []
 
@@ -148,7 +146,9 @@ def main(config_path: str):
 
                             # ---- save results 
                             rid = mlflow.active_run().info.run_id[:8]
-                            out_path = runs_dir / f"logs_{timestamp}_op-{opt_name}_freq-{mpc_freq}_building-{b}_run-{rid}.csv"
+                            runs_dir = Path(f"03_optimization/runs/{timestamp}/{b}")
+                            runs_dir.mkdir(parents=True, exist_ok=True)
+                            out_path = runs_dir /  f"logs_{timestamp}_op-{opt_name}_freq-{mpc_freq}_building-{b}_run-{rid}.csv"
                             df_run.to_csv(out_path, index=True)
 
 
@@ -158,14 +158,15 @@ def main(config_path: str):
 
 
         # ---- Batch-level summary 
-        all_csv = Path("03_optimization/runs").glob(f"logs_{timestamp}_*.csv")
+        all_csv = Path("03_optimization/runs").rglob(f"logs_{timestamp}_*.csv")
+
         mre = MultiRunEvaluator(run_paths=all_csv)
 
         print("\n\n==== Pivot table ====\n")
         print(mre.pivot().to_string())
 
-        print("\n\n==== Net-cost leaderboard ====\n")
-        print(mre.leaderboard().to_string(index=False))
+        print("\n\n==== Net-cost leaderboard ====")
+        print(mre.leaderboard())
 
         batch_csvs = list(runs_dir.glob(f"logs_{timestamp}_*.csv"))
         if batch_csvs:
@@ -189,6 +190,9 @@ if __name__ == "__main__":
     #main(sys.argv[1])
 
     # debugging mode
+    start_time = pd.Timestamp.now()
     path = "03_optimization/configs/test_config.json"
     main(path)
 
+    time_end = pd.Timestamp.now()
+    print("\nTime elapsed:", time_end - start_time)
