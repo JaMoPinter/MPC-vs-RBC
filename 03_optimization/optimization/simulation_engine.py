@@ -66,6 +66,12 @@ class SimulationEngine:
 
                 self.opt.update_soe(t, decision, gt)  # TODO: Check if update_soe works like that
 
+                row = self.opt.results_realization[t]
+                row['solver_ok'] = bool(decision.get('solver_ok', True))
+                row["solver_status"] = decision.get("solver_status")  # ok/error/exception/...
+                row["solver_error"] = decision.get("solver_error")    # short message or None
+                self.opt.results_realization[t] = row
+
                 logs.append(self.opt.results_realization[t])
 
             t_now = t_next

@@ -215,11 +215,11 @@ class MpcDetOptimizer(BaseOptimizer):
 
         # Step 5: Emergency fallback decision if solver fails
         if result is None:
-            pb0 = self._fallback_decision()
-            return {'pb': pb0, 'solver_ok': False, 'error': self.last_solver_error}
+            fb_decision = self._fallback_decision()
+            return fb_decision
 
         # Step 6: Get and return decision
-        decision = {'pb': [pyo.value(self.model.pb[t]) for t in self.model.time][0], 'solver_ok': True}
+        decision = {'pb': [pyo.value(self.model.pb[t]) for t in self.model.time][0], 'solver_ok': True, "solver_status": "ok"}
         return decision
     
 

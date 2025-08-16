@@ -342,8 +342,11 @@ class IntervalOptimizer(BaseOptimizer):
 
         # Emergency fallback decision
         if result is None:
-            pb_fb = self._fallback_decision()
-            return {'pb_low': pb_fb, 'pb_high': pb_fb, 'solver_ok': False, 'error': self.last_solver_error}
+            fb_decision = self._fallback_decision()  # TODO: This now contains a dict => Map it so that is has pb_low and pb_high in it
+            fb_decision["pb_low"] = fb_decision["pb"]
+            fb_decision["pb_high"] = fb_decision["pb"]
+            fb_decision.pop("pb", None)
+            return fb_decision
 
 
         pb_low = [pyo.value(self.model.y_low[t]) for t in self.model.time]
@@ -352,7 +355,8 @@ class IntervalOptimizer(BaseOptimizer):
         decision = {
             'pb_low': pb_low[0],
             'pb_high': pb_high[0],
-            'solver_ok': True
+            'solver_ok': True,
+            "solver_status": "ok"
         }
 
         # TODO: Need to log all the results somewhere so that we cann see what the schedule is at a certain time.

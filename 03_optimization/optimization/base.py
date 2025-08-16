@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import pandas as pd
 import pyomo.environ as pyo
+from collections import Counter
 
 class BaseOptimizer(ABC):
     """
@@ -40,6 +41,14 @@ class BaseOptimizer(ABC):
 
         self.results_schedule = {}  # Results from optimization
         self.results_realization = {}  # Results according to scheduled actions and ground truth
+
+        # Keeping track of solver successes/failures
+        self.solver_attampts: int = 0
+        self.solver_failures: int = 0
+        self.solver_fail_messages: Counter[str] = Counter()  # Count of different solver failure messages
+        self.last_solver_ok: bool | None = None  # Was last solver run successful?
+        self.last_solver_status: str | None = None  # Why did it (not) work? Short messages
+        self.last_solver_message: str | None = None  # What exactly happened? => More detailed
 
 
         # TODO: Load the prices
@@ -98,6 +107,28 @@ class BaseOptimizer(ABC):
         pass
 
 
+    # def solve(self):
+    #     """ Solve the optimization using pyomo and IPOPT. """
+    #     solver = pyo.SolverFactory('ipopt')
+    #     solver.options['max_iter'] = 8000
+
+    #     try: 
+    #         result = solver.solve(self.model, tee=True)
+    #     except Exception as e:
+    #         self.last_solver_error = f'exception: {e!r}'
+    #         return None
+        
+    #             # only proceed on proper termination
+    #     if not pyo.check_optimal_termination(result):
+    #         tc = getattr(result.solver, 'termination_condition', None)
+    #         st = getattr(result.solver, 'status', None)
+    #         self.last_solver_error = f'{st} / {tc}'
+    #         return None
+
+    #     self.last_solver_error = None
+    #     return result  
+
+
     def solve(self):
         """ Solve the optimization using pyomo and IPOPT. """
         solver = pyo.SolverFactory('ipopt')
@@ -106,18 +137,18 @@ class BaseOptimizer(ABC):
         try: 
             result = solver.solve(self.model, tee=True)
         except Exception as e:
-            self.last_solver_error = f'exception: {e!r}'
+            self._log_solver_result(False, status="exception", message=repr(e))
             return None
         
-                # only proceed on proper termination
-        if not pyo.check_optimal_termination(result):
-            tc = getattr(result.solver, 'termination_condition', None)
-            st = getattr(result.solver, 'status', None)
-            self.last_solver_error = f'{st} / {tc}'
-            return None
+        ok = pyo.check_optimal_termination(result)
+        status = str(getattr(result.solver, "status", "unknown"))
+        term = str(getattr(result.solver, "termination_condition", "unknown"))
+        msg = f"{status} / {term}"
 
-        self.last_solver_error = None
-        return result
+        self._log_solver_result(bool(ok), status=status, message=msg)
+        return result if ok else None
+        
+
     
     def _fallback_decision(self) -> float:
         """ 
@@ -126,29 +157,30 @@ class BaseOptimizer(ABC):
         Set battery power to zero.
         """
         pb = 0.0
-        return pb
 
-
-
-
+        fb_decision = {
+            "pb": pb,
+            "solver_ok": False,
+            "solver_status": "error1",
+            "solver_error": "fallback_decision"
+        }
+        return fb_decision
     
-    # @abstractmethod
-    # def run_optimization(self, t_now: pd.Timestamp) -> None:
-    #     """
-    #     Run the optimization to calculate the optimal schedule.
-    #     Args:
-    #         t_now (pd.Timestamp): Current timestamp to start optimization.
-    #     """
-    #     pass
 
-    # @abstractmethod
-    # def get_next_action(self) -> float:
-    #     """
-    #     Return the battery power setpoint according to the latest schedule.
-        
-    #     Returns:
-    #         float: Battery power setpoint in kW.
-    #     """
-    #     pass
+    def _log_solver_result(self, ok:bool, status: str | None = None, message: str | None = None) -> None:
+        """ Record the outcome of a solver attempt (per MPC step). """
+        self.solver_attampts += 1
+        if not ok:
+            self.solver_failures += 1
+            if message:
+                # Keep message short
+                self.solver_fail_messages[message[:160]] += 1
+
+        self.last_solver_ok = ok
+        self.last_solver_status = status
+        self.last_solver_message = message
+
+
+
 
 
