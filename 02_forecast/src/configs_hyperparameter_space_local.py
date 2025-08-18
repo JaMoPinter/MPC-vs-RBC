@@ -20,7 +20,7 @@ NUM_SAMPLES = 125             # Number of samples for hyperparameter tuning
 BASE_PATH_DATA = 'GermanBuildingData/01_data/prosumption_data'
 BASE_RESULTS_PATH = 'GermanBuildingData/02_forecast/mount/storage_quantile_fc'
 
-RESOLUTION = 60  # in minutes
+RESOLUTION = 15  # in minutes
 HORIZON = int(24 * 60 / RESOLUTION)        # 24 hours forecast horizon
 STEPS_YEAR = int(365 * 24 * 60 / RESOLUTION)  # Number of steps for 1 year
 TIME_STAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
