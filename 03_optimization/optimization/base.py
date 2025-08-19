@@ -8,13 +8,21 @@ class BaseOptimizer(ABC):
     Abstract base class for rolling-horizon optimizers.
     """
 
-    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, building, param_assumption: str = None):
+    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, objective: str, building, param_assumption: str = None):
         """
         Initialize the optimizer.
         """
         self.battery_cfg = battery_cfg
-        self.c_buy_long = prices['import_price']  # Import price for a longer than necessary period
-        self.c_sell_long = prices['export_price']
+        self.objective = objective
+
+        if self.objective == 'linear':
+            self.c_buy_long = prices['import_price']  # Import price for a longer than necessary period
+            self.c_sell_long = prices['export_price']
+        elif self.objective == 'quadratic':
+            self.c_quad_buy_long = prices['import_quad']
+            self.c_lin_buy_long = prices['import_lin']
+            self.c_quad_sell_long = prices['export_quad']
+            self.c_lin_sell_long = prices['export_lin']
 
         self.b = building
         
@@ -36,6 +44,7 @@ class BaseOptimizer(ABC):
 
         self.soe_now = self.battery_cfg['soe_initial']  # Current state of energy (SoE) in kWh
         self.soe_initial = self.battery_cfg['soe_initial']  # Current state of energy (SoE) in kWh
+
 
 
 
@@ -147,9 +156,22 @@ class BaseOptimizer(ABC):
 
         self._log_solver_result(bool(ok), status=status, message=msg)
         return result if ok else None
-        
-
     
+
+    def _get_prices(self, time_index):
+        
+        if self.objective == 'linear':
+            c_buy = self.c_buy_long[time_index]  
+            c_sell = self.c_sell_long[time_index]  
+            return c_buy, c_sell, None, None
+
+        elif self.objective == 'quadratic':
+            c_quad_buy = self.c_quad_buy_long[time_index]
+            c_lin_buy = self.c_lin_buy_long[time_index]
+            c_quad_sell = self.c_quad_sell_long[time_index]
+            c_lin_sell = self.c_lin_sell_long[time_index]
+            return c_quad_buy, c_quad_sell, c_lin_buy, c_lin_sell
+
     def _fallback_decision(self) -> float:
         """ 
         Emergency action when the solver fails. Log occurences and see if they can distort the results.

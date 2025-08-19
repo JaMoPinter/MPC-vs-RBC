@@ -41,6 +41,7 @@ def main(config_path: str):
         config = json.load(f)
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+    objective = config['optimization']['objective']
 
     # Load Loaders and Managers
     gt_manager = GroundTruthManager(config)
@@ -92,7 +93,7 @@ def main(config_path: str):
                     gt_delta = gt_manager.gt_freq  # Use the GT frequency from the manager
 
 
-                    optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, gt_freq=gt_delta, param_assumption=config['forecasts']['parametric_assumption'], prices=prices, building=b)
+                    optimizer = OptClass(battery_cfg=config['battery'], mpc_freq=mpc_freq, gt_freq=gt_delta, param_assumption=config['forecasts']['parametric_assumption'], prices=prices, building=b, objective=objective)
                     fc_manager = ForecastManager(building=b, mpc_freq=mpc_freq, loader=fc_loader)
 
 
@@ -132,9 +133,15 @@ def main(config_path: str):
 
                             df_run = sim.run(start=fc_loader.start_time, end=fc_loader.end_time)
 
-                            # Attach prices (forwardfill to ensure that 01:14 gets prices from 01:00)
-                            df_run['import_price'] = prices['import_price'].reindex(df_run.index, method='ffill')
-                            df_run['export_price'] = prices['export_price'].reindex(df_run.index, method='ffill')
+                            if objective == 'linear':
+                                # Attach prices (forwardfill to ensure that 01:14 gets prices from 01:00)
+                                df_run['import_price'] = prices['import_price'].reindex(df_run.index, method='ffill')
+                                df_run['export_price'] = prices['export_price'].reindex(df_run.index, method='ffill')
+                            elif objective == 'quadratic':
+                                df_run['import_quad'] = prices['import_quad'].reindex(df_run.index, method='ffill')
+                                df_run['import_lin'] = prices['import_lin'].reindex(df_run.index, method='ffill')
+                                df_run['export_quad'] = prices['export_quad'].reindex(df_run.index, method='ffill')
+                                df_run['export_lin'] = prices['export_lin'].reindex(df_run.index, method='ffill')
 
 
                             # ---- evaluate & log metrics

@@ -10,8 +10,8 @@ import pyomo.environ as pyo
 class IntervalOptimizer(BaseOptimizer):
 
 
-    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, building, param_assumption: str = None):
-        super().__init__(battery_cfg=battery_cfg, mpc_freq=mpc_freq, gt_freq=gt_freq, prices=prices, building=building, param_assumption=param_assumption) # only necessary if this class has its own init method
+    def __init__(self, battery_cfg: dict, mpc_freq: int, gt_freq: int, prices, objective, building, param_assumption: str = None):
+        super().__init__(battery_cfg=battery_cfg, mpc_freq=mpc_freq, gt_freq=gt_freq, prices=prices, objective=objective, building=building, param_assumption=param_assumption) # only necessary if this class has its own init method
 
 
         self.cdf = cdf_formula(self.param_assumption)
@@ -252,16 +252,29 @@ class IntervalOptimizer(BaseOptimizer):
 
 
     def _define_objective_function(self):
-        def objective(model):
-            '''' Minimize the expected costs associated with the grid exchange. To discourage a total discharge
-                of the battery, we reward the expected battery energy at the end of the horizon. '''
-            sum_costs = sum(
-                 self.c_sell[t] * model.pg_exp_sell[t]
-                + self.c_buy[t] * model.pg_exp_buy[t]
-                for t in model.time
-            ) 
-            #+ c_soe_end * model.e_exp[model.time_e.last()]
-            return sum_costs
+
+        if self.objective == 'linear':
+            def objective(model):
+                ''' Minimize the expected costs associated with the grid exchange. To discourage a total discharge
+                    of the battery, we reward the expected battery energy at the end of the horizon. '''
+                sum_costs = sum(
+                    self.c_sell1[t] * model.pg_exp_sell[t]
+                    + self.c_buy1[t] * model.pg_exp_buy[t]
+                    for t in model.time
+                ) 
+                #+ c_soe_end * model.e_exp[model.time_e.last()]
+                return sum_costs
+        elif self.objective == 'quadratic':
+            def objective(model):
+                ''' Here, costs are associated with with energy volume AND power. '''
+                sum_costs = sum(
+                    self.c_buy1[t] * model.pg_exp_buy[t]**2 + self.c_buy2[t] * model.pg_exp_buy[t] 
+                    + self.c_sell1[t] * model.pg_exp_sell[t]**2 + self.c_sell2[t] * model.pg_exp_sell[t]  # 0.15 €/kWh for low feed in. 
+                    for t in model.time
+                ) 
+                return sum_costs
+        else:
+            raise ValueError(f"Unknown objective function: {self.objective}. Choose 'linear' or 'quadratic'.")
         self.model.objective = pyo.Objective(rule=objective, sense=pyo.minimize)
 
 
@@ -329,10 +342,7 @@ class IntervalOptimizer(BaseOptimizer):
 
         self.dynamic_bound_low, self.dynamic_bound_high = dynamic_bounds((self.lowest_bound, self.highest_bound), self.pdf_numpy, self.fc_slice)
 
-        self.c_buy = self.c_buy_long[self.time_index]  # TODO: Take the needed values from self.c_buy_long based on the time_index
-        self.c_sell = self.c_sell_long[self.time_index]  # TODO: Get vals from self.c_sell_long
-
-        #print("self.c_buy:", self.c_buy)
+        self.c_buy1, self.c_sell1, self.c_buy2, self.c_sell2 = self._get_prices(self.time_index) # cbuy2=csell2=None for linear prices
 
         self.model = pyo.ConcreteModel()
 
@@ -393,8 +403,13 @@ class IntervalOptimizer(BaseOptimizer):
         #print(f"pb_now: {pb_now}, pg_now: {pg_now}, gt: {gt}, self.gt_inc: {self.gt_inc}")
         soe_new = self.soe_now - pb_now * self.gt_inc * eta
 
-        #if soe_new > self.cap_max or soe_new < self.cap_min:
-        #    raise ValueError(f"State of energy out of bounds for IntervalOptimizer: {soe_new} kWh at {t_now}. Expected bounds: [{self.cap_min}, {self.cap_max}] kWh.")
+        if round(soe_new, 5) > self.cap_max or round(soe_new, 5) < self.cap_min:
+            raise ValueError(f"State of charge out of bounds: {soe_new} kWh. Should be between {self.cap_min} and {self.cap_max} kWh.") 
+        
+        if soe_new > self.cap_max:
+            soe_new = self.cap_max
+        if soe_new < self.cap_min:
+            soe_new = self.cap_min
         
 
         self.results_realization[t_now] = {

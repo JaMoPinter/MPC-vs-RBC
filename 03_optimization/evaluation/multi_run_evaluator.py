@@ -138,7 +138,7 @@ class MultiRunEvaluator:
         """
         cols_base = [
             "model", "building", "freq", "t_start", "t_end", "solver_fails",
-            "pg_import_total", "pg_export_total", "e_end", by
+            "pg_import_total", "import_cost", "pg_export_total", "export_revenue", "e_end", by
         ]
         cols = [c for c in cols_base if c in self.df.columns]
 

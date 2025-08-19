@@ -37,6 +37,10 @@ class Evaluator:
             if 'timestamp' in self.df.columns:
                 self.prices = self.df[["timestamp", "import_price", "export_price"]].set_index("timestamp")
             self.prices = self.df[["import_price", "export_price"]].copy()
+        elif {"import_quad", "export_quad", "import_lin", "export_lin"}.issubset(self.df.columns):
+            if 'timestamp' in self.df.columns:
+                self.prices = self.df[["timestamp", "import_quad", "export_quad", "import_lin", "export_lin"]].set_index("timestamp")
+            self.prices = self.df[["import_quad", "export_quad", "import_lin", "export_lin"]].copy()
         else:
             self.prices = None
 
@@ -54,28 +58,57 @@ class Evaluator:
         if self.prices is None:
             raise ValueError("Prices data is required to calculate energy costs.")
         
+        # Get frequency of solution in hours
         if self.df.index.freq is None:
             # get the frequency by taking the timestamp stored in index of two rows
             self.df.index.freq = pd.infer_freq(self.df.index)
+        freq = self.df.index.freq
+        dt_hours = pd.Timedelta(freq).total_seconds() / 3600  # convert frequency to hours
 
-        # The prices and df do not have the same resolution. We need to map each row of the df to prices of the latest timestamp.
-        # whenever df['pg'] is positive, we buy energy, otherwise we sell it. ffill is forward filling to account for frequency mismatch of prices/df
-        self.df['costs_buy'] = self.df['pg'].clip(lower=0) * self.prices['import_price'].reindex(self.df.index, method='ffill') * pd.Timedelta(self.df.index.freq).total_seconds() / 3600
-        self.df['costs_sell'] = -self.df['pg'].clip(upper=0) * self.prices['export_price'].reindex(self.df.index, method='ffill') * pd.Timedelta(self.df.index.freq).total_seconds() / 3600
 
-        # Calculate cashflow
-        self.df['cashflow'] = self.df['costs_buy'] - self.df['costs_sell']
+        # Map prices to df-index (minutely)
+        prices = self.prices.reindex(self.df.index, method='ffill')
 
-        # Calculate total costs/revenue
-        import_cost = float(self.df['costs_buy'].sum())
-        export_revenue = float(self.df['costs_sell'].sum())
-        total_cost = import_cost - export_revenue
 
-        costs_summary = {
-            'import_cost': import_cost,
-            'export_revenue': export_revenue,
-            'net_cost': total_cost
-        }
+        # Consider Import/export separately
+        P_imp = self.df["pg"].clip(lower=0)  # Pg >= 0
+        P_exp = (-self.df["pg"].clip(upper=0))  # Pg < 0 => positive Exportpower
+
+        
+        # Linear or quadratic objective
+        has_linear = {"import_price", "export_price"}.issubset(prices.columns)
+        has_quadr = {"import_quad", "export_quad", "import_lin", "export_lin"}.issubset(prices.columns)
+
+        if has_linear and not has_quadr:
+            # Costs Import C = P_imp * c_imp * t;  Revenue Export R = P_exp * r_exp *t
+            c_imp = prices["import_price"]  # €/kWh
+            r_exp = prices["export_price"]  # €/kWh
+            self.df['costs_buy'] = P_imp * c_imp * dt_hours  # costs for buying energy
+            self.df['rev_sell'] = P_exp * r_exp * dt_hours  # revenue for selling energy
+
+        elif has_quadr and not has_linear:
+            # Costs Import: C = (c0 + c1 * P_imp) *P_imp * t
+            c0 = prices["import_lin"]  # €/kWh
+            c1 = prices["import_quad"]  # €/(kW * kWh)
+            self.df["costs_buy"] = (c0 + c1 * P_imp) * P_imp * dt_hours  # costs for buying energy
+
+            # Revenue Export: R = (r0 - b*P_exp) * P_exp * t
+            r0 = prices["export_lin"]  # €/kWh
+            b = prices["export_quad"]  # €/(kW * kWh)
+            self.df["rev_sell"] = (r0 - b * P_exp) * P_exp * dt_hours  # revenue for selling energy
+        
+        else:
+            raise ValueError("Price column missing. Need either ['import_price', 'export_price'] OR ['import_quad', 'export_quad', 'import_lin', 'export_lin']")
+
+
+        # Cashflow (Costs and Revenue are positive)
+        self.df["cashflow"] = self.df.get("costs_buy", 0.0) - self.df.get("rev_sell", 0.0)
+
+        import_cost = float(self.df.get("costs_buy", 0.0).sum())
+        export_revenue = float(self.df.get("rev_sell", 0.0).sum())
+        net_cost = import_cost - export_revenue
+
+        costs_summary = {"import_cost": import_cost, "export_revenue": export_revenue, "net_cost": net_cost}
 
         return costs_summary
     

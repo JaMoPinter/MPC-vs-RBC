@@ -170,17 +170,33 @@ class MpcDetOptimizer(BaseOptimizer):
             return model.pg[t] + model.pb[t] == model.pl[t]
         self.model.constr_power_balance = pyo.Constraint(self.model.time, rule=constr_power_balance)
 
-
-
+        # # E-end should be equal to e0
+        # def constr_e_end(model):
+        #     ''' e_end = e0 '''
+        #     return model.e[model.time_e.last()] == model.e0[model.time_e0.first()]
+        # self.model.constr_e_end = pyo.Constraint(rule=constr_e_end)
 
     def _define_objective(self):
-        def objective(model):
-            sum_costs = sum(
-                self.c_sell[t] * model.pg_sell[t]
-                + self.c_buy[t] * model.pg_buy[t]
-                for t in model.time
+
+        if self.objective == 'linear':
+            def objective(model):
+                sum_costs = sum(
+                    self.c_sell1[t] * model.pg_sell[t]
+                    + self.c_buy1[t] * model.pg_buy[t]
+                    for t in model.time
             )
-            return sum_costs
+                return sum_costs
+        elif self.objective == 'quadratic':
+            def objective(model):
+                ''' TBD '''
+                sum_costs = sum(
+                    self.c_buy1[t] * model.pg_buy[t]**2 + self.c_buy2[t] * model.pg_buy[t]
+                    + self.c_sell1[t] * model.pg_sell[t]**2 + self.c_sell2[t] * model.pg_sell[t]
+                    for t in model.time
+                )
+                return sum_costs
+        else:
+            raise ValueError(f"Unknown objective function: {self.objective}. Choose 'linear' or 'quadratic'.")
         self.model.objective = pyo.Objective(rule=objective, sense=pyo.minimize)
 
 
@@ -201,8 +217,10 @@ class MpcDetOptimizer(BaseOptimizer):
         self.time_index = self.fc_exp.index
 
         # Step 2: Get the prices
-        self.c_buy = self.c_buy_long[self.time_index]
-        self.c_sell = self.c_sell_long[self.time_index]
+        # self.c_buy = self.c_buy_long[self.time_index]
+        # self.c_sell = self.c_sell_long[self.time_index]
+
+        self.c_buy1, self.c_sell1, self.c_buy2, self.c_sell2 = self._get_prices(self.time_index) # cbuy2=csell2=None for linear prices
 
         
 
@@ -236,6 +254,14 @@ class MpcDetOptimizer(BaseOptimizer):
         pg = gt - pb
 
         soe_new = self.soe_now - pb *self.gt_inc * eta
+
+        if round(soe_new, 5) > self.cap_max or round(soe_new, 5) < self.cap_min:
+            raise ValueError(f"State of charge out of bounds: {soe_new} kWh. Should be between {self.cap_min} and {self.cap_max} kWh.") 
+        
+        if soe_new > self.cap_max:
+            soe_new = self.cap_max
+        if soe_new < self.cap_min:
+            soe_new = self.cap_min
 
         self.results_realization[t_now] = {
             'timestamp': t_now,
