@@ -23,6 +23,12 @@ class BaseOptimizer(ABC):
             self.c_lin_buy_long = prices['import_lin']
             self.c_quad_sell_long = prices['export_quad']
             self.c_lin_sell_long = prices['export_lin']
+        elif self.objective == 'exponential':
+            self.c_imp_c_long = prices['import_c']
+            self.c_imp_A_long = prices['import_A']
+            self.c_imp_k_long = prices['import_k']
+            self.c_exp_A_long = prices['export_A']
+            self.c_exp_k_long = prices['export_k']
 
         self.b = building
         
@@ -163,14 +169,23 @@ class BaseOptimizer(ABC):
         if self.objective == 'linear':
             c_buy = self.c_buy_long[time_index]  
             c_sell = self.c_sell_long[time_index]  
-            return c_buy, c_sell, None, None
+            return c_buy, c_sell, None, None, None
 
         elif self.objective == 'quadratic':
             c_quad_buy = self.c_quad_buy_long[time_index]
             c_lin_buy = self.c_lin_buy_long[time_index]
             c_quad_sell = self.c_quad_sell_long[time_index]
             c_lin_sell = self.c_lin_sell_long[time_index]
-            return c_quad_buy, c_quad_sell, c_lin_buy, c_lin_sell
+            return c_quad_buy, c_quad_sell, c_lin_buy, c_lin_sell, None
+
+        elif self.objective == 'exponential':
+            c_imp_c = self.c_imp_c_long[time_index]
+            c_imp_A = self.c_imp_A_long[time_index]
+            c_imp_k = self.c_imp_k_long[time_index]
+            c_exp_A = self.c_exp_A_long[time_index]
+            c_exp_k = self.c_exp_k_long[time_index]
+            return c_imp_A, c_exp_A, c_imp_k, c_exp_k, c_imp_c
+
 
     def _fallback_decision(self) -> float:
         """ 

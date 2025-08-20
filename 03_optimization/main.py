@@ -142,6 +142,12 @@ def main(config_path: str):
                                 df_run['import_lin'] = prices['import_lin'].reindex(df_run.index, method='ffill')
                                 df_run['export_quad'] = prices['export_quad'].reindex(df_run.index, method='ffill')
                                 df_run['export_lin'] = prices['export_lin'].reindex(df_run.index, method='ffill')
+                            elif objective == 'exponential':
+                                df_run['import_c'] = prices['import_c'].reindex(df_run.index, method='ffill')
+                                df_run['import_A'] = prices['import_A'].reindex(df_run.index, method='ffill')
+                                df_run['import_k'] = prices['import_k'].reindex(df_run.index, method='ffill')
+                                df_run['export_A'] = prices['export_A'].reindex(df_run.index, method='ffill')
+                                df_run['export_k'] = prices['export_k'].reindex(df_run.index, method='ffill')
 
 
                             # ---- evaluate & log metrics

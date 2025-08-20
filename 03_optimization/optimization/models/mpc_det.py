@@ -194,6 +194,14 @@ class MpcDetOptimizer(BaseOptimizer):
                     + self.c_sell1[t] * model.pg_sell[t]**2 + self.c_sell2[t] * model.pg_sell[t]
                     for t in model.time
                 )
+                return sum_costs   
+        elif self.objective == 'exponential':
+            def objective(model):
+                ''' TBD '''
+                sum_costs = sum(
+                    self.c_buy3[t] * model.pg_buy[t] - self.c_buy1[t] * (1-pyo.exp(-self.c_buy2[t] * model.pg_buy[t]))
+                    - self.c_sell1[t] * (1-pyo.exp(+self.c_sell2[t] * model.pg_sell[t])) for t in model.time
+                )
                 return sum_costs
         else:
             raise ValueError(f"Unknown objective function: {self.objective}. Choose 'linear' or 'quadratic'.")
@@ -220,7 +228,7 @@ class MpcDetOptimizer(BaseOptimizer):
         # self.c_buy = self.c_buy_long[self.time_index]
         # self.c_sell = self.c_sell_long[self.time_index]
 
-        self.c_buy1, self.c_sell1, self.c_buy2, self.c_sell2 = self._get_prices(self.time_index) # cbuy2=csell2=None for linear prices
+        self.c_buy1, self.c_sell1, self.c_buy2, self.c_sell2, self.c_buy3 = self._get_prices(self.time_index) # cbuy2=csell2=None for linear prices
 
         
 

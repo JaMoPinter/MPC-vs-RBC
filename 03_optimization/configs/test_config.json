@@ -10,15 +10,15 @@
 
 
     "optimization": {
-        "buildings": ["SFH4"],
-        "models": ["mpc_det", "ideal"],
+        "buildings": ["SFH30"],
+        "models": ["rule-based", "ideal", "mpc_det", "interval", "mpc_prob"],
         "start_time": "2020-06-07T04:00:00+00:00",
         "end_time": "2020-06-14T04:00:00+00:00",
         "gt_freq": 1,
         "mpc_update_freq": [60],
         "mpc_horizon": 24,
-        "prices": "quad_prices.csv",
-        "objective": "quadratic"
+        "prices": "exponential_prices.csv",
+        "objective": "exponential"
     },
 
 

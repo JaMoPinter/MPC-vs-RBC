@@ -5,6 +5,7 @@ from typing import Tuple, Optional
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 import plotly.graph_objects as go
 
@@ -41,6 +42,10 @@ class Evaluator:
             if 'timestamp' in self.df.columns:
                 self.prices = self.df[["timestamp", "import_quad", "export_quad", "import_lin", "export_lin"]].set_index("timestamp")
             self.prices = self.df[["import_quad", "export_quad", "import_lin", "export_lin"]].copy()
+        elif {"import_A", "export_A", "import_k", "export_k", "import_c"}.issubset(self.df.columns):
+            if 'timestamp' in self.df.columns:
+                self.prices = self.df[["timestamp", "import_A", "export_A", "import_k", "export_k", "import_c"]].set_index("timestamp")
+            self.prices = self.df[["import_A", "export_A", "import_k", "export_k", "import_c"]].copy()
         else:
             self.prices = None
 
@@ -78,6 +83,7 @@ class Evaluator:
         # Linear or quadratic objective
         has_linear = {"import_price", "export_price"}.issubset(prices.columns)
         has_quadr = {"import_quad", "export_quad", "import_lin", "export_lin"}.issubset(prices.columns)
+        has_exp = {"import_A", "export_A", "import_k", "export_k", "import_c"}.issubset(prices.columns)
 
         if has_linear and not has_quadr:
             # Costs Import C = P_imp * c_imp * t;  Revenue Export R = P_exp * r_exp *t
@@ -97,6 +103,18 @@ class Evaluator:
             b = prices["export_quad"]  # €/(kW * kWh)
             self.df["rev_sell"] = (r0 - b * P_exp) * P_exp * dt_hours  # revenue for selling energy
         
+        elif has_exp and not (has_linear or has_quadr):
+            # Costs Import: C = c * P_imp - A*(1-exp[-k*P_imp])
+            c = prices["import_c"]
+            A_imp = prices["import_A"]
+            k_imp = prices["import_k"]
+            self.df["costs_buy"] = (c * P_imp - A_imp * (1 - np.exp(-k_imp * P_imp))) * dt_hours  # costs for buying energy
+
+            # Revenue Export: R = A*(1-exp[-k*P_exp])
+            A_exp = prices["export_A"]
+            k_exp = prices["export_k"]
+            self.df["rev_sell"] = A_exp * (1 - np.exp(-k_exp * P_exp)) * dt_hours  # revenue for selling energy
+
         else:
             raise ValueError("Price column missing. Need either ['import_price', 'export_price'] OR ['import_quad', 'export_quad', 'import_lin', 'export_lin']")
 
