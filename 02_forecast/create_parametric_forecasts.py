@@ -10,6 +10,7 @@ import numpy as np
 import os
 import sys
 import re
+import random
 
 
 class ParametricForecasts:
@@ -22,6 +23,11 @@ class ParametricForecasts:
         self.param_forecasts = None
         self.csv_path = None
         self.implemented_distributions = ['sum2gaussian']
+
+        self.seed = 42
+        np.random.seed(self.seed)
+        random.seed(self.seed)
+        os.environ['PYTHONHASHSEED'] = str(self.seed)
 
 
     def load_quantile_forecasts(self, csv_path, timerange=None, chunksize=200_000, include_ptot=False, downcast=True):
@@ -154,7 +160,7 @@ class ParametricForecasts:
         idx = self.quantile_forecasts.index
         param_cols = ['w1', 'mu1', 'std1', 'w2', 'mu2', 'std2']
         self.param_forecasts = pd.DataFrame(index=idx, columns=param_cols)
-        np.random.seed(42)
+        np.random.seed(self.seed)
 
         total_rows = len(self.quantile_forecasts)
         processed = 0
@@ -174,7 +180,7 @@ class ParametricForecasts:
                 synthetic_values = inv_cdf(synthetic_probs)
 
                 # Step 3: Fit Gaussian Mixture Model (GMM) to the synthetic samples
-                gmm = GaussianMixture(n_components=2, random_state=42, covariance_type='full')
+                gmm = GaussianMixture(n_components=2, random_state=self.seed, covariance_type='full')
                 gmm.fit(synthetic_values.reshape(-1, 1))
 
                 # Step 4: Store the GMM parameters in a DataFrame
@@ -306,8 +312,10 @@ if __name__ == "__main__":
     # ]
 
     # get a list of paths of each fc with the same time
-    time_of_fc_creation = '2025-08-15_14-17-01'
+    time_of_fc_creation = '2025-08-18_14-43-38'
     path_list = list(Path('02_forecast/mount/storage_quantile_fc/').glob(f'**/file_fc*_{time_of_fc_creation}_freq*.csv'))
+    # Sort the path list according to SFH
+    path_list.sort(key=lambda p: int(re.search(r"SFH(\d+)", p.name).group(1)))
 
     print("Found paths:")
     for p in path_list:
