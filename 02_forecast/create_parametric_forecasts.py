@@ -108,13 +108,14 @@ class ParametricForecasts:
 
         
 
-    def load_parametric_forecasts(self, csv_path, name='sum2gaussian'):
+    def load_parametric_forecasts(self, csv_path, name='sum2gaussian', nrows=None):
         """ Load parametric forecasts from the specified path. """
 
         df = pd.read_csv(
             csv_path,
             parse_dates=['timestamp', 'time_fc_created'],
-            index_col='timestamp'
+            index_col='timestamp',
+            nrows=nrows
         )
 
         # Use multi-index for the DataFrame
@@ -305,17 +306,15 @@ if __name__ == "__main__":
     time_start = pd.Timestamp.now()
     print("Time start:", time_start)
     # Example usage
-    # path_list = [
-    #     '/srv/fh6281/GermanBuildingDate/02_forecast/mount/storage_quantile_fc/SFH3/2025-08-13_10-08-01/file_fc_AutoKAN_SFH3_2025-08-13_10-08-01_freq60.csv',
-    #     '/srv/fh6281/GermanBuildingDate/02_forecast/mount/storage_quantile_fc/SFH4/2025-08-13_10-08-01/file_fc_AutoKAN_SFH4_2025-08-13_10-08-01_freq60.csv',
-    #     '/srv/fh6281/GermanBuildingDate/02_forecast/mount/storage_quantile_fc/SFH9/2025-08-13_14-34-02/file_fc_AutoKAN_SFH9_2025-08-13_14-34-02_freq60.csv'
-    # ]
+    path_list = [
+        Path('/srv/fh6281/GermanBuildingDate/02_forecast/mount/storage_quantile_fc/SFH36/2025-08-18_14-43-38/file_fc_AutoKAN_SFH36_2025-08-18_14-43-38_freq30.csv')
+    ]
 
     # get a list of paths of each fc with the same time
-    time_of_fc_creation = '2025-08-18_14-43-38'
-    path_list = list(Path('02_forecast/mount/storage_quantile_fc/').glob(f'**/file_fc*_{time_of_fc_creation}_freq*.csv'))
+    #time_of_fc_creation = '2025-08-18_14-43-38'
+    #path_list = list(Path('02_forecast/mount/storage_quantile_fc/').glob(f'**/file_fc*_{time_of_fc_creation}_freq*.csv'))
     # Sort the path list according to SFH
-    path_list.sort(key=lambda p: int(re.search(r"SFH(\d+)", p.name).group(1)))
+    #path_list.sort(key=lambda p: int(re.search(r"SFH(\d+)", p.name).group(1)))
 
     print("Found paths:")
     for p in path_list:

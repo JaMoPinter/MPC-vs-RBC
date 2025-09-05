@@ -148,6 +148,7 @@ def main(config_path: str):
                                 df_run['import_k'] = prices['import_k'].reindex(df_run.index, method='ffill')
                                 df_run['export_A'] = prices['export_A'].reindex(df_run.index, method='ffill')
                                 df_run['export_k'] = prices['export_k'].reindex(df_run.index, method='ffill')
+                            df_run['c_bat_deg'] = optimizer.c_deg
 
 
                             # ---- evaluate & log metrics

@@ -2,33 +2,35 @@
     "mlflow_experiment_name": "Interval Scheduling",
 
     "forecasts": {
-        "model": "AutoKAN",
-        "fc_creation_time": "2025-08-14T09:03:44+00:00",
-        "parametric_assumption": "sum2gaussian",
-        "fc_update_freq": 60
+        "model": "AutoKANDet_MSE",
+        "fc_creation_time": "2025-08-16T22:56:39+00:00",
+        "parametric_assumption": "expected_value",
+        "fc_update_freq": 15
     },
 
 
     "optimization": {
-        "buildings": ["SFH30"],
-        "models": ["rule-based", "ideal", "mpc_det", "interval", "mpc_prob"],
-        "start_time": "2020-06-07T04:00:00+00:00",
-        "end_time": "2020-06-14T04:00:00+00:00",
+        "buildings": ["SFH18"],
+        "models": ["rule-based", "mpc_det_rule"],
+        "start_time": "2020-07-20T04:00:00+00:00",
+        "end_time": "2020-12-20T04:00:00+00:00",
         "gt_freq": 1,
-        "mpc_update_freq": [60],
+        "mpc_update_freq": [15],
         "mpc_horizon": 24,
-        "prices": "exponential_prices.csv",
-        "objective": "exponential"
+        "prices": "tou_prices.csv",
+        "objective": "linear"
     },
 
 
     "battery": {
         "capacity_min": 0.0,
-        "capacity_max": 8.0,
+        "capacity_max": 13.8,
         "power_min": -5.0,
         "power_max": 5.0,
-        "charge_efficiency": 0.95,
-        "discharge_efficiency": 0.95,
+        "charge_efficiency": 0.98,
+        "discharge_efficiency": 0.98,
+
+        "c_bat_deg": 0.0,
 
         "soe_initial": 4.0
     }

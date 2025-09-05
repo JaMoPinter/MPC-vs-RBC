@@ -85,6 +85,8 @@ class ForecastLoader:
             df['mu2'] = df['mu2'] / 1000.0
             df['std1'] = df['std1'] / 1000.0
             df['std2'] = df['std2'] / 1000.0
+        elif self.parametric_assumption == 'expected_value':
+            df['expected_value'] = df['expected_value'] / 1000.0
         else:
             raise ValueError(f"Rescaling for {self.parametric_assumption} is not yet implemented.")
 

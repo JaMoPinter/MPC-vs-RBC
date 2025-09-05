@@ -30,6 +30,8 @@ class BaseOptimizer(ABC):
             self.c_exp_A_long = prices['export_A']
             self.c_exp_k_long = prices['export_k']
 
+        self.c_deg = self.battery_cfg["c_bat_deg"]  # €/kWh degradation costs
+
         self.b = building
         
         # TODO: Implement here all the parameters that are needed for all the optimizers! 

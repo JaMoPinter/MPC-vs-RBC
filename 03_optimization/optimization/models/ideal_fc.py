@@ -31,3 +31,5 @@ class IdealOptimizer(MpcDetOptimizer):
         self.super_fc.rename(columns={'P_TOT': 'expected_value'}, inplace=True)
         return self.super_fc
     
+
+

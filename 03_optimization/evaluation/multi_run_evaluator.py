@@ -112,6 +112,10 @@ class MultiRunEvaluator:
                 "e_end": ev.e_end,
                 "pg_import_total": ev.pg_import_total,
                 "pg_export_total": ev.pg_export_total,
+                "e_export_total": ev.e_export_total,
+                "e_import_total": ev.e_import_total,
+                "e_throughput": ev.e_throughput_total,
+                "e_battery_deg_costs": ev.battery_deg_costs,
                 "steps": n,
                 "solver_fails": f"{n_fail}/{n} ({round((n_fail / n)*100, 2)}%)",
                 "solver_fail_count": n_fail,
@@ -130,16 +134,20 @@ class MultiRunEvaluator:
     # Public views
     # -----------------------------
 
-    def leaderboard(self, by: str = "net_cost", per_building: bool = True) -> pd.DataFrame:
+    def leaderboard(self, by: str = "net_cost_final", per_building: bool = True, cols_to_show=None) -> pd.DataFrame:
         """
         Returns a leaderboard sorted by the metric 'by'.
         If per_building=True, prints a small table per building (like before).
         Otherwise, returns a single DataFrame you can print or display.
         """
-        cols_base = [
-            "model", "building", "freq", "t_start", "t_end", "solver_fails",
-            "pg_import_total", "import_cost", "pg_export_total", "export_revenue", "e_end", by
-        ]
+        if cols_to_show is not None:
+            cols_base = cols_to_show
+        else:
+            cols_base = [
+                "model", "building", "freq", "t_start", "t_end", "solver_fails",
+                "e_import_total", "import_cost", "e_export_total", "export_revenue", "e_throughput", "e_discharged_total", "e_battery_deg_costs", "e_end", "net_cost", "net_cost_adj",
+                by  #"exceed_frac","exceed_hours","threshold_kw" "rms_kw", "count", ,"q95_abs_kw", "pg_export_total", "pg_import_total","import_squared", "export_squared", "mss_kw2","pmax_import_kw","pmax_export_kw"
+            ]
         cols = [c for c in cols_base if c in self.df.columns]
 
         if not per_building:
@@ -147,6 +155,13 @@ class MultiRunEvaluator:
 
         # per-building display (kept from your original behavior)
         from IPython.display import display
+        # means = self.df[cols].mean(numeric_only=True)
+        # means[by] = means[by].round(2)
+        # print(f"\n🏆 Overall mean across all runs:")
+        # for k, v in means.items():
+        #     print(f"  {k}: {v}")
+
+
         for b in self.df["building"].unique():
             df_building = (
                 self.df[self.df["building"] == b][cols]
@@ -154,6 +169,195 @@ class MultiRunEvaluator:
             )
             print(f"\n🏢 Building: {b}")
             display(df_building)
+
+    # def leaderboard_mean(
+    #     self,
+    #     group=("model",),             # e.g. ("model",) or ("model","freq")
+    #     sort_by="net_cost",           # e.g. "net_cost_adj" if you prefer
+    #     numeric_agg: str = "mean",    # "mean" or "median"
+    #     round_ndigits: int | None = 2,# round numeric outputs (None = no rounding)
+    #     cols_to_show: List[str] | None = None
+    # ) -> pd.DataFrame:
+    #     """
+    #     Aggregate across buildings (and runs) and return ONE table with one row per group,
+    #     averaging all numeric metrics.
+
+    #     Adds reliability rollups:
+    #       - runs:      number of runs in the group
+    #       - buildings: unique buildings in the group
+    #       - total_steps / total_failures
+    #       - solver_fail_pct_overall = total_failures / total_steps
+
+    #     Parameters
+    #     ----------
+    #     group : tuple[str]
+    #         Columns to group by, default ("model",). Use ("model","freq") for per-frequency rows.
+    #     sort_by : str
+    #         Column to sort by; if missing, a sensible fallback is chosen.
+    #     numeric_agg : {"mean","median"}
+    #         Aggregation for numeric columns.
+    #     round_ndigits : int or None
+    #         If set, round all numeric outputs to this many decimals.
+
+    #     Returns
+    #     -------
+    #     pd.DataFrame
+    #     """
+
+    #     if cols_to_show is not None:
+    #         cols_base = cols_to_show
+    #     else:
+    #         cols_base = ["path",
+    #             "model", "building", "freq", "t_start", "t_end", "solver_fails",
+    #             "e_import_total", "import_cost", "e_export_total", "export_revenue", "e_throughput", "e_discharged_total", "e_battery_deg_costs", "e_end", "net_cost", "net_cost_adj", 
+    #             "net_cost_final"  #"exceed_frac","exceed_hours","threshold_kw" "rms_kw", "count", ,"q95_abs_kw", "pg_export_total", "pg_import_total","import_squared", "export_squared", "mss_kw2","pmax_import_kw","pmax_export_kw"
+    #         ]
+    #     cols = [c for c in cols_base if c in self.df.columns]
+    #     df = self.df[cols].copy()
+
+    #     # Pick numeric columns to aggregate
+    #     num_cols = df.select_dtypes(include="number").columns.tolist()
+
+    #     # We'll also compute a reliability rollup separately
+    #     rollup = df.groupby(list(group), dropna=False).agg(
+    #         runs=("path", "count"),
+    #         buildings=("building", pd.Series.nunique),
+    #         #total_steps=("steps", "sum") if "steps" in df.columns else ("path", "count"),
+    #         #total_failures=("solver_fail_count", "sum") if "solver_fail_count" in df.columns else ("path", "size"),
+    #     )
+
+    #     # Weighted failure rate across the group
+    #     # rollup["solver_fail_pct_overall"] = (
+    #     #     rollup["total_failures"] / rollup["total_steps"]
+    #     # ).replace([pd.NA, pd.NaT], 0.0)
+
+    #     # Aggregate numeric columns (mean/median)
+    #     agg_fn = "mean" if numeric_agg == "mean" else "median"
+    #     num_agg = (
+    #         df.groupby(list(group), dropna=False)[num_cols]
+    #           .agg(agg_fn)
+    #     )
+
+    #     # Join and tidy
+    #     out = rollup.join(num_agg, how="left").reset_index()
+
+    #     # Choose a smart fallback for sorting if sort_by not present
+    #     if sort_by not in out.columns:
+    #         for cand in ["net_cost_adj", "net_cost", "import_cost", "export_revenue"]:
+    #             if cand in out.columns:
+    #                 sort_by = cand
+    #                 break
+    #         else:
+    #             # last resort: first numeric column if any
+    #             sort_by = next((c for c in out.columns if pd.api.types.is_numeric_dtype(out[c])), None)
+
+    #     if sort_by is not None:
+    #         out = out.sort_values(sort_by, ascending=True, ignore_index=True)
+
+    #     if round_ndigits is not None:
+    #         for c in out.columns:
+    #             if pd.api.types.is_float_dtype(out[c]):
+    #                 out[c] = out[c].round(round_ndigits)
+
+    #     return out
+
+
+    def leaderboard_mean(
+        self,
+        group=("model",),             # e.g. ("model",) or ("model","freq")
+        sort_by="net_cost_final",           # e.g. "net_cost_adj" if you prefer
+        rank_by: str | None = None,   # which metric to rank on (defaults to sort_by or net_cost/net_cost_adj)
+        numeric_agg: str = "mean",    # "mean" or "median" for numeric aggregation
+        round_ndigits: int | None = 2 # round numeric outputs (None = no rounding)
+    ) -> pd.DataFrame:
+        """
+        Aggregate across buildings/runs and return one row per group with:
+        - numeric means/medians of all numeric columns,
+        - reliability rollups (runs, buildings, total_steps, total_failures, solver_fail_pct_overall),
+        - avg_rank: average per-building rank for `rank_by` (smaller is better),
+        - rank_n_buildings: #buildings contributing to avg_rank.
+
+        Ranking procedure:
+        1) For each building, aggregate `rank_by` over duplicate rows of `group` (e.g., multiple runs) using mean.
+        2) Rank groups within the building (ascending).
+        3) Average ranks across buildings where the group is present.
+
+        Notes:
+        - If a group is missing for some buildings, those buildings are skipped for that group's avg_rank.
+        - Choose `rank_by` explicitly if you don't want it to follow `sort_by`.
+        """
+        cols_base = ["path",
+                "model", "building", "freq", "t_start", "t_end", "solver_fails",
+                "e_import_total", "import_cost", "e_export_total", "export_revenue", "e_throughput", "e_discharged_total", "e_battery_deg_costs", "e_end", "net_cost", "net_cost_adj", 
+                "net_cost_final"  #"exceed_frac","exceed_hours","threshold_kw" "rms_kw", "count", ,"q95_abs_kw", "pg_export_total", "pg_import_total","import_squared", "export_squared", "mss_kw2","pmax_import_kw","pmax_export_kw"
+            ]
+        cols = [c for c in cols_base if c in self.df.columns]
+
+
+        df = self.df[cols].copy()
+        gcols = list(group)
+
+        # choose rank_by default smartly
+        if rank_by is None:
+            rank_by = sort_by if sort_by in df.columns else ("net_cost_final" if "net_cost_final" in df.columns else "net_cost_adj")
+        if rank_by not in df.columns:
+            raise ValueError(f"`rank_by`='{rank_by}' not found in columns.")
+
+        # ---- reliability rollup (as before)
+        rollup = df.groupby(gcols, dropna=False).agg(
+            runs=("path", "count"),
+            buildings=("building", pd.Series.nunique),
+            #total_steps=("steps", "sum") if "steps" in df.columns else ("path", "count"),
+            #total_failures=("solver_fail_count", "sum") if "solver_fail_count" in df.columns else ("path", "size"),
+        )
+        #rollup["solver_fail_pct_overall"] = (
+        #    rollup["total_failures"] / rollup["total_steps"].replace(0, pd.NA)
+        #)
+
+        # ---- numeric aggregation (mean/median)
+        num_cols = df.select_dtypes(include="number").columns.tolist()
+        agg_fn = "mean" if numeric_agg == "mean" else "median"
+        num_agg = df.groupby(gcols, dropna=False)[num_cols].agg(agg_fn)
+
+        out = rollup.join(num_agg, how="left").reset_index()
+
+        # ---- compute average rank across buildings for `rank_by`
+        # 1) collapse to one value per (building, group) for ranking
+        rank_base = (
+            df.groupby(["building", *gcols], dropna=False)[rank_by]
+            .mean()
+            .reset_index()
+        )
+        # 2) within each building, rank ascending (best = 1.0); method='average' handles ties fairly
+        rank_base["rank"] = rank_base.groupby("building")[rank_by].rank(method="average", ascending=True)
+        # 3) average ranks across buildings for each group
+        avg_rank = (
+            rank_base.groupby(gcols, dropna=False)
+                    .agg(avg_rank=("rank", "mean"),
+                        rank_n_buildings=("building", "nunique"))
+                    .reset_index()
+        )[['model', 'avg_rank']]
+        out = out.merge(avg_rank, on=gcols, how="left")
+
+        # ---- sorting
+        if sort_by not in out.columns:
+            for cand in ["avg_rank", "net_cost_adj", "net_cost", "import_cost", "export_revenue"]:
+                if cand in out.columns:
+                    sort_by = cand
+                    break
+            else:
+                sort_by = None
+        if sort_by is not None:
+            out = out.sort_values(sort_by, ascending=True, ignore_index=True)
+
+        # ---- rounding
+        if round_ndigits is not None:
+            for c in out.columns:
+                if pd.api.types.is_float_dtype(out[c]):
+                    out[c] = out[c].round(round_ndigits)
+
+        return out
+
 
     def pivot(self, value: str = "net_cost") -> pd.DataFrame:
         """

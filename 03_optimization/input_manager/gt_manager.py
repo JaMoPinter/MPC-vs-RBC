@@ -133,7 +133,7 @@ class GroundTruthManager:
             'SFH29': (19, 'WEST'),
             'SFH30': (18, 'WEST'),
             'SFH32': (30, 'WEST'),
-            # 'SFH36': (XX, 'XXX'),
+            'SFH36': (20, 'WEST'),
 
         }
 

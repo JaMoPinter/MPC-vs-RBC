@@ -178,6 +178,12 @@ class MpcDetOptimizer(BaseOptimizer):
 
     def _define_objective(self):
 
+        def battery_degradation(model):
+            if self.c_deg == 0.0 or self.c_deg is None:
+                return 0.0
+            else:
+                return self.c_deg * sum(model.pb_dis[t] * self.t_inc / self.eta_dis for t in model.time)
+
         if self.objective == 'linear':
             def objective(model):
                 sum_costs = sum(
@@ -185,7 +191,7 @@ class MpcDetOptimizer(BaseOptimizer):
                     + self.c_buy1[t] * model.pg_buy[t]
                     for t in model.time
             )
-                return sum_costs
+                return sum_costs + battery_degradation(model)
         elif self.objective == 'quadratic':
             def objective(model):
                 ''' TBD '''
@@ -194,7 +200,7 @@ class MpcDetOptimizer(BaseOptimizer):
                     + self.c_sell1[t] * model.pg_sell[t]**2 + self.c_sell2[t] * model.pg_sell[t]
                     for t in model.time
                 )
-                return sum_costs   
+                return sum_costs + battery_degradation(model)
         elif self.objective == 'exponential':
             def objective(model):
                 ''' TBD '''
@@ -202,7 +208,7 @@ class MpcDetOptimizer(BaseOptimizer):
                     self.c_buy3[t] * model.pg_buy[t] - self.c_buy1[t] * (1-pyo.exp(-self.c_buy2[t] * model.pg_buy[t]))
                     - self.c_sell1[t] * (1-pyo.exp(+self.c_sell2[t] * model.pg_sell[t])) for t in model.time
                 )
-                return sum_costs
+                return sum_costs + battery_degradation(model)
         else:
             raise ValueError(f"Unknown objective function: {self.objective}. Choose 'linear' or 'quadratic'.")
         self.model.objective = pyo.Objective(rule=objective, sense=pyo.minimize)
