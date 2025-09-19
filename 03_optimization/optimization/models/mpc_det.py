@@ -251,7 +251,7 @@ class MpcDetOptimizer(BaseOptimizer):
             return fb_decision
 
         # Step 6: Get and return decision
-        decision = {'pb': [pyo.value(self.model.pb[t]) for t in self.model.time][0], 'solver_ok': True, "solver_status": "ok"}
+        decision = {'pb': [pyo.value(self.model.pb[t]) for t in self.model.time][0], 'pg': [pyo.value(self.model.pg[t]) for t in self.model.time][0], 'solver_ok': True, "solver_status": "ok"}
         return decision
     
 

@@ -8,6 +8,8 @@ from .models.ideal_fc import IdealOptimizer
 from .models.mpc_det_rule_based import MpcRuleOptimizer
 #from .models.mpc_det_rule_based import MpcRuleConsumerOptimizer
 from .models.mpc_det_rule_based import IdealRuleOptimizer
+from .models.mpc_det_rule_based_constGrid import MpcRuleConstGridOptimizer
+from .models.mpc_det_rule_based_constGrid import IdealRuleConstGridOptimizer
 
 class OptimizerRegistry:
     _registry = {
@@ -19,7 +21,10 @@ class OptimizerRegistry:
         'ideal': IdealOptimizer,
         'mpc_det_rule': MpcRuleOptimizer,
 #        'mpc_det_rule_consumer': MpcRuleConsumerOptimizer,
-        'ideal_rule': IdealRuleOptimizer
+        'ideal_rule': IdealRuleOptimizer,
+        'mpc_det_rule_constGrid': MpcRuleConstGridOptimizer,
+        'ideal_rule_constGrid': IdealRuleConstGridOptimizer
+
     }
 
     @classmethod

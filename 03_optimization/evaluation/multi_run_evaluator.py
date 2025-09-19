@@ -63,7 +63,7 @@ class MultiRunEvaluator:
             costs_summary = ev.get_costs()
 
             # Read CSV to compute solver failure metrics
-            df = pd.read_csv(path)
+            df = pd.read_csv(path, low_memory=False)
             n = len(df)
 
             if "solver_ok" in df.columns:
@@ -170,96 +170,6 @@ class MultiRunEvaluator:
             print(f"\n🏢 Building: {b}")
             display(df_building)
 
-    # def leaderboard_mean(
-    #     self,
-    #     group=("model",),             # e.g. ("model",) or ("model","freq")
-    #     sort_by="net_cost",           # e.g. "net_cost_adj" if you prefer
-    #     numeric_agg: str = "mean",    # "mean" or "median"
-    #     round_ndigits: int | None = 2,# round numeric outputs (None = no rounding)
-    #     cols_to_show: List[str] | None = None
-    # ) -> pd.DataFrame:
-    #     """
-    #     Aggregate across buildings (and runs) and return ONE table with one row per group,
-    #     averaging all numeric metrics.
-
-    #     Adds reliability rollups:
-    #       - runs:      number of runs in the group
-    #       - buildings: unique buildings in the group
-    #       - total_steps / total_failures
-    #       - solver_fail_pct_overall = total_failures / total_steps
-
-    #     Parameters
-    #     ----------
-    #     group : tuple[str]
-    #         Columns to group by, default ("model",). Use ("model","freq") for per-frequency rows.
-    #     sort_by : str
-    #         Column to sort by; if missing, a sensible fallback is chosen.
-    #     numeric_agg : {"mean","median"}
-    #         Aggregation for numeric columns.
-    #     round_ndigits : int or None
-    #         If set, round all numeric outputs to this many decimals.
-
-    #     Returns
-    #     -------
-    #     pd.DataFrame
-    #     """
-
-    #     if cols_to_show is not None:
-    #         cols_base = cols_to_show
-    #     else:
-    #         cols_base = ["path",
-    #             "model", "building", "freq", "t_start", "t_end", "solver_fails",
-    #             "e_import_total", "import_cost", "e_export_total", "export_revenue", "e_throughput", "e_discharged_total", "e_battery_deg_costs", "e_end", "net_cost", "net_cost_adj", 
-    #             "net_cost_final"  #"exceed_frac","exceed_hours","threshold_kw" "rms_kw", "count", ,"q95_abs_kw", "pg_export_total", "pg_import_total","import_squared", "export_squared", "mss_kw2","pmax_import_kw","pmax_export_kw"
-    #         ]
-    #     cols = [c for c in cols_base if c in self.df.columns]
-    #     df = self.df[cols].copy()
-
-    #     # Pick numeric columns to aggregate
-    #     num_cols = df.select_dtypes(include="number").columns.tolist()
-
-    #     # We'll also compute a reliability rollup separately
-    #     rollup = df.groupby(list(group), dropna=False).agg(
-    #         runs=("path", "count"),
-    #         buildings=("building", pd.Series.nunique),
-    #         #total_steps=("steps", "sum") if "steps" in df.columns else ("path", "count"),
-    #         #total_failures=("solver_fail_count", "sum") if "solver_fail_count" in df.columns else ("path", "size"),
-    #     )
-
-    #     # Weighted failure rate across the group
-    #     # rollup["solver_fail_pct_overall"] = (
-    #     #     rollup["total_failures"] / rollup["total_steps"]
-    #     # ).replace([pd.NA, pd.NaT], 0.0)
-
-    #     # Aggregate numeric columns (mean/median)
-    #     agg_fn = "mean" if numeric_agg == "mean" else "median"
-    #     num_agg = (
-    #         df.groupby(list(group), dropna=False)[num_cols]
-    #           .agg(agg_fn)
-    #     )
-
-    #     # Join and tidy
-    #     out = rollup.join(num_agg, how="left").reset_index()
-
-    #     # Choose a smart fallback for sorting if sort_by not present
-    #     if sort_by not in out.columns:
-    #         for cand in ["net_cost_adj", "net_cost", "import_cost", "export_revenue"]:
-    #             if cand in out.columns:
-    #                 sort_by = cand
-    #                 break
-    #         else:
-    #             # last resort: first numeric column if any
-    #             sort_by = next((c for c in out.columns if pd.api.types.is_numeric_dtype(out[c])), None)
-
-    #     if sort_by is not None:
-    #         out = out.sort_values(sort_by, ascending=True, ignore_index=True)
-
-    #     if round_ndigits is not None:
-    #         for c in out.columns:
-    #             if pd.api.types.is_float_dtype(out[c]):
-    #                 out[c] = out[c].round(round_ndigits)
-
-    #     return out
 
 
     def leaderboard_mean(
@@ -359,11 +269,12 @@ class MultiRunEvaluator:
         return out
 
 
-    def pivot(self, value: str = "net_cost") -> pd.DataFrame:
+    def pivot(self, models: List[str], value: str = "net_cost") -> pd.DataFrame:
         """
         Matrix: rows=building, cols=(model,freq), filled with *value* metric.
         """
-        return self.df.pivot_table(
+
+        return self.df[self.df["model"].isin(models)].pivot_table(
             index="building",
             columns=["model", "freq"],
             values=value,

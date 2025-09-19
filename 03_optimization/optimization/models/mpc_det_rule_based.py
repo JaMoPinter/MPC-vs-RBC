@@ -76,7 +76,9 @@ class MpcRuleOptimizer(MpcDetOptimizer):
             'pg': pg,           # Grid power after applying the action
             'gt': gt,               # Ground truth at t_now
             'soe_now': self.soe_now,  # Current state of energy before applying the action
-            'soe_new': soe_new      # New state of energy after applying the action
+            'soe_new': soe_new,      # New state of energy after applying the action
+            'pb_mpc': decision.get('pb'),  # Original MPC battery power setpoint
+            'pg_mpc': decision.get('pg')   # Original MPC grid power setpoint
         }
 
 

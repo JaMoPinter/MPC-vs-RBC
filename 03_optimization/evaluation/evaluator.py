@@ -24,7 +24,7 @@ class Evaluator:
             battery_cfg: Optional[dict] = None
     ):
         #print("Current working directory:", Path.cwd())
-        self.df = (pd.read_csv(df_run, parse_dates=['timestamp']) if isinstance(df_run, (str, Path)) else df_run.copy())
+        self.df = (pd.read_csv(df_run, parse_dates=['timestamp'], low_memory=False) if isinstance(df_run, (str, Path)) else df_run.copy())
         if 'timestamp' in self.df.columns:
             self.df.set_index('timestamp', inplace=True)
 
@@ -170,7 +170,7 @@ class Evaluator:
             deliverable_kwh = max(self.e_end - self.cap_min, 0.0) * self.eta_dis
             # take the last timesteps price with 1kW
             last_price_row = prices.iloc[-1]
-            price_last = self._terminal_price_at_1kW(last_price_row)
+            price_last = self._terminal_price_at_1kW(last_price_row, exp_or_imp='imp')
             terminal_value = float(deliverable_kwh * price_last)
         net_cost_adj = net_cost - terminal_value
 
@@ -193,21 +193,41 @@ class Evaluator:
         return costs_summary
     
 
-    def _terminal_price_at_1kW(self, prices_row: pd.Series) -> float:
+    def _terminal_price_at_1kW(self, prices_row: pd.Series, exp_or_imp='exp') -> float:
         """ Compute the theoretical export 'price per kWh' at 1 kW from the last timestep. """
-        # Linear Price
-        if {"export_price"}.issubset(prices_row.index):
-            return float(prices_row["export_price"])
-        # Quadratic Revenue for 1kW during 1h: (r0 - b * 1) * 1
-        elif {"export_quad", "export_lin"}.issubset(prices_row.index):
-            return float((prices_row["export_lin"] - prices_row["export_quad"]) * 1.0)
-        # Exponential Revenue for 1kW during 1h: A*(1 - exp(-k*1))
-        elif {"export_A", "export_k"}.issubset(prices_row.index):
-            A = float(prices_row["export_A"])
-            k = float(prices_row["export_k"])
-            return float(A * (1.0 - np.exp(-k * 1.0)))
+        if exp_or_imp == 'exp':
+            # Linear Price
+            if {"export_price"}.issubset(prices_row.index):
+                return float(prices_row["export_price"])
+            # Quadratic Revenue for 1kW during 1h: (r0 - b * 1) * 1
+            elif {"export_quad", "export_lin"}.issubset(prices_row.index):
+                return float((prices_row["export_lin"] - prices_row["export_quad"]) * 1.0)
+            # Exponential Revenue for 1kW during 1h: A*(1 - exp(-k*1))
+            elif {"export_A", "export_k"}.issubset(prices_row.index):
+                A = float(prices_row["export_A"])
+                k = float(prices_row["export_k"])
+                return float(A * (1.0 - np.exp(-k * 1.0)))
+            else:
+                raise ValueError("Price row is missing required columns.")
+
+        elif exp_or_imp == 'imp':
+            # Linear Price
+            if {"import_price"}.issubset(prices_row.index):
+                return float(prices_row["import_price"])
+            # Quadratic Cost for 1kW during 1h: (c0 + c1 * 1) * 1
+            elif {"import_quad", "import_lin"}.issubset(prices_row.index):
+                return float((prices_row["import_lin"] + prices_row["import_quad"]) * 1.0)
+            # Exponential Cost for 1kW during 1h: c * 1 - A*(1-exp[-k*1])
+            elif {"import_A", "import_k", "import_c"}.issubset(prices_row.index):
+                A = float(prices_row["import_A"])
+                k = float(prices_row["import_k"])
+                c = float(prices_row["import_c"])
+                return float((c * 1.0 - A * (1.0 - np.exp(-k * 1.0))))
+            else:
+                raise ValueError("Price row is missing required columns.")
+            
         else:
-            raise ValueError("Price row is missing required columns.")
+            raise ValueError("exp_or_imp must be either 'exp' or 'imp'.")
 
 
 

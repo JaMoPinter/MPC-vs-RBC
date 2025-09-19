@@ -196,9 +196,11 @@ class BaseOptimizer(ABC):
         Set battery power to zero.
         """
         pb = 0.0
+        pg = 0.0 
 
         fb_decision = {
             "pb": pb,
+            "pg": pg,
             "solver_ok": False,
             "solver_status": "error1",
             "solver_error": "fallback_decision"

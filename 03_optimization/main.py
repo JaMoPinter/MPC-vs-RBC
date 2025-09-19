@@ -41,6 +41,7 @@ def main(config_path: str):
         config = json.load(f)
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+    print(f"=== Starting optimization batch at {timestamp} ===")
     objective = config['optimization']['objective']
 
     # Load Loaders and Managers

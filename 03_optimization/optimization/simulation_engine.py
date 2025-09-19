@@ -64,7 +64,7 @@ class SimulationEngine:
 
                 gt = self.gt_full.loc[t, 'P_TOT']
 
-                self.opt.update_soe(t, decision, gt)  # TODO: Check if update_soe works like that
+                self.opt.update_soe(t, decision, gt)
 
                 row = self.opt.results_realization[t]
                 row['solver_ok'] = bool(decision.get('solver_ok', True))
