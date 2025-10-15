@@ -182,7 +182,7 @@ class MpcDetOptimizer(BaseOptimizer):
             if self.c_deg == 0.0 or self.c_deg is None:
                 return 0.0
             else:
-                return self.c_deg * sum(model.pb_dis[t] * self.t_inc / self.eta_dis for t in model.time)
+                return self.c_deg * sum(model.pb_dis[t] * 1 / self.eta_dis for t in model.time)  # REMOVED self.t_inc FROM DEGRADATION TO FIT TO OTHER COST TERMS
 
         if self.objective == 'linear':
             def objective(model):

@@ -10,8 +10,8 @@
 
 
     "optimization": {
-        "buildings": ["SFH18"],
-        "models": ["rule-based", "mpc_det_rule"],
+        "buildings": [ "SFH30", "SFH32", "SFH36"],
+        "models": ["ideal"],
         "start_time": "2020-07-20T04:00:00+00:00",
         "end_time": "2020-12-20T04:00:00+00:00",
         "gt_freq": 1,
@@ -30,7 +30,7 @@
         "charge_efficiency": 0.98,
         "discharge_efficiency": 0.98,
 
-        "c_bat_deg": 0.0,
+        "c_bat_deg": 0.084,
 
         "soe_initial": 4.0
     }

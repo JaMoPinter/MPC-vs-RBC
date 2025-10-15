@@ -21,8 +21,15 @@ class Evaluator:
             self, 
             df_run: str | Path | pd.DataFrame, 
             prices: Optional[str | Path | pd.DataFrame] = None,
-            battery_cfg: Optional[dict] = None
+            battery_cfg: Optional[dict] = None,
+            eta_dis: float = 0.98
     ):
+        
+        # TODO: FIX eta_dis usage. Careful. This is temporary
+        self.eta_dis = eta_dis
+        #######################################################
+
+
         #print("Current working directory:", Path.cwd())
         self.df = (pd.read_csv(df_run, parse_dates=['timestamp'], low_memory=False) if isinstance(df_run, (str, Path)) else df_run.copy())
         if 'timestamp' in self.df.columns:
@@ -88,14 +95,14 @@ class Evaluator:
         self.e_throughput_total = round(float((pb.abs() * self.dt_hours).sum()), 4)
         # get the total discharged energy to calculate battery losses
         pb_dis = pb.clip(lower=0.0)  # discharged kW (>=0)
-        self.e_discharged_total = round(float((pb_dis * self.dt_hours).sum()), 4)
+        self.e_discharged_total = round(float((pb_dis * self.dt_hours / self.eta_dis).sum()), 4)  # Added eta_dis to align with the objective function of the optimizer
         self.battery_deg_costs = round(float(np.array((self.e_discharged_total * self.c_deg)).sum()), 4)
 
 
 
         # Battery specs for final SoE to € transformation
         self.cap_min = 0.0
-        self.eta_dis = 0.95
+        #self.eta_dis = 0.98
         if battery_cfg is not None: # TODO: CAREFUL IF THIS IS NOT USED
             self.cap_min = float(battery_cfg.get('capacity_min', self.cap_min))
             self.eta_dis = float(battery_cfg.get('discharge_efficiency', self.eta_dis))

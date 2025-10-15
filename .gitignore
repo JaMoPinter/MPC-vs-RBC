@@ -209,6 +209,7 @@ __marimo__/
 # ignore the data in the raw_data folder
 01_data/raw_data/
 01_data/prosumption_data/
+01_data/price_data/price_timeseries/
 
 02_forecast/tmp_forecast/results/
 
@@ -221,5 +222,8 @@ __marimo__/
 
 # ignore the created optimization files
 03_optimization/runs/
+03_optimization/evaluation/tables/
 mlruns/
 
+# ignore all .pdf files
+*.pdf

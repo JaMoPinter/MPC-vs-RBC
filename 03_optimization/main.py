@@ -178,7 +178,7 @@ def main(config_path: str):
         mre = MultiRunEvaluator(run_paths=all_csv)
 
         print("\n\n==== Pivot table ====\n")
-        print(mre.pivot().to_string())
+        print(mre.pivot(models=config['optimization']['models']).to_string())
 
         print("\n\n==== Net-cost leaderboard ====")
         print(mre.leaderboard())
