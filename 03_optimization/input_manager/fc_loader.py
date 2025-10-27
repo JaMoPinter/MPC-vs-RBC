@@ -34,7 +34,7 @@ class ForecastLoader:
         self.time_last_op_iteration = self.end_time - timedelta(minutes=min(config['optimization']['mpc_update_freq'])) # TODO: Min does not make sense anymore. We need for each different MPC frequency a new forecast!
 
         self.forecasts_to_load = self._get_forecast_starting_points()
-        print('Forecast timestamps to load:', self.forecasts_to_load)
+        print('Number of forecast timestamps to load:', len(self.forecasts_to_load))
 
     
     def _forecast_path(self, building: str, mpc_freq: int) -> str:

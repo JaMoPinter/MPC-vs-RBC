@@ -35,7 +35,8 @@ class ForecastManager:
             
             # Load a new (more recent) forecast
             df, valid_until = self._select_forecast(t_now)
-            print(f"Load new forecast at {t_now}: {df}")
+            print(f"Load new forecast at {t_now}.")
+            #print(f"Load new forecast at {t_now}: {df}")
 
             # Initialize a new ForecastWindow
             self._current_window = ForecastWindow(

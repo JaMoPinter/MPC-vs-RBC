@@ -51,7 +51,7 @@ class SimulationEngine:
             # 1. Decision at t_now
             fc_slice = self.fc_manager.get_forecast(t_now)                  # TODO: Check if get_forecasts works like that
             decision = self.opt.optimize(t_now, fc_slice)#['action']    # TODO: Check if fc_slice is enough for the optimizer
-            print("FINAL DECISION:", decision)
+            print("Scheduler-Decision:", decision)
 
             # 2. Determine next decision time
             t_next = t_now + self.mpc_delta
