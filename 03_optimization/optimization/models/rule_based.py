@@ -7,23 +7,16 @@ class RuleBasedOptimizer(BaseOptimizer):
     Simple rule-based: charge if PV > load and battery not full, discharge if the reverse.
     """
 
-    # def __init__(self, config: dict):
-    #     """
-    #     Initialize the Rule-Based Optimizer.
-    #     """
-
-    #     super().__init__(config=config) # only necessary if this class has its own init method
-
 
     def optimize(self, t_now, fc_slice) -> dict:
         """ Nothing to optimize here. """
 
-        return {'action': None} # TODO: Check how to handle rule based
+        return {'action': None}
 
 
     def update_soe(self, t_now, action, gt) -> float:
 
-        net_load = gt  # TODO: Rewrite net_load to gt
+        net_load = gt 
 
         if net_load <= 0:  # Charge the battery
             eta = self.eta_ch

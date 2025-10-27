@@ -34,7 +34,6 @@ class BaseOptimizer(ABC):
 
         self.b = building
         
-        # TODO: Implement here all the parameters that are needed for all the optimizers! 
         self.mpc_freq = mpc_freq  # MPC frequency in minutes
         self.t_inc = self.mpc_freq / 60  # Convert minutes to hours
         self.gt_inc = gt_freq / 60 # frequency of ground truth data in hours
@@ -68,31 +67,9 @@ class BaseOptimizer(ABC):
         self.last_solver_message: str | None = None  # What exactly happened? => More detailed
 
 
-        # TODO: Load the prices
-        # TODO: Resample the prices to the right frequency.
-
-
-        # self.pb_high_limit = config.get('pb_high_limit')
-        # self.pb_low_limit = config.get('pb_low_limit')
-        # self.e_low_limit = config.get('e_low_limit')
-        # self.e_high_limit = config.get('e_high_limit')
-        
-        # self.freq = config.get('freq')
-
-
-
-    # def initialize(self, initial_soe: float):
-    #     """
-    #     Set the initial state of energy (SoE) before simulation starts.
-
-    #     Args:
-    #         initial_soe (float): Initial state of energy in kWh.
-    #     """
-    #     self.soe = initial_soe
-
 
     @abstractmethod
-    def optimize(self, t_now: pd.Timestamp, fc: pd.DataFrame) -> dict: # Maybe for some optimizers, the gt is needed? Maybe only for update_soe?
+    def optimize(self, t_now: pd.Timestamp, fc: pd.DataFrame) -> dict:
         """
         Perform the optimization for the current timestamp, soe and forecast. 
         
@@ -109,7 +86,7 @@ class BaseOptimizer(ABC):
 
 
     @abstractmethod
-    def update_soe(self, t: pd.Timestamp, decision, gt) -> dict: # Some methods will need gt as well, e.g., Rule-Based? Should it be included here or in the specific optimizer?
+    def update_soe(self, t: pd.Timestamp, decision, gt) -> dict: # Some methods will need gt as well, e.g., Rule-Based
         """
         Update the state of energy (soe) based on the action taken. # TODO: Correct description to return a dict
         
@@ -120,30 +97,7 @@ class BaseOptimizer(ABC):
         Returns:
             float: Updated state of charge after applying the action.
         """
-        # TODO: What forms can action take? Sometimes it is a float, sometimes action consists of at least two values (e.g., interval optimizer)
         pass
-
-
-    # def solve(self):
-    #     """ Solve the optimization using pyomo and IPOPT. """
-    #     solver = pyo.SolverFactory('ipopt')
-    #     solver.options['max_iter'] = 8000
-
-    #     try: 
-    #         result = solver.solve(self.model, tee=True)
-    #     except Exception as e:
-    #         self.last_solver_error = f'exception: {e!r}'
-    #         return None
-        
-    #             # only proceed on proper termination
-    #     if not pyo.check_optimal_termination(result):
-    #         tc = getattr(result.solver, 'termination_condition', None)
-    #         st = getattr(result.solver, 'status', None)
-    #         self.last_solver_error = f'{st} / {tc}'
-    #         return None
-
-    #     self.last_solver_error = None
-    #     return result  
 
 
     def solve(self):
@@ -220,8 +174,4 @@ class BaseOptimizer(ABC):
         self.last_solver_ok = ok
         self.last_solver_status = status
         self.last_solver_message = message
-
-
-
-
 

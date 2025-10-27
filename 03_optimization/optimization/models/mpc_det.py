@@ -9,10 +9,7 @@ class MpcDetOptimizer(BaseOptimizer):
     """
     Deterministic MPC based on deterministic forecasts.
 
-    If forecast is probabilistic, use the expected value. 
-    
-    To prevent the model from discharging at the end of the horizon, we do XXX
-    
+    If forecast is probabilistic, use the expected value.     
     """
 
     def __init__(self, *args, **kwargs):
@@ -45,9 +42,6 @@ class MpcDetOptimizer(BaseOptimizer):
                 expected_value = w1 * mu1 + w2 * mu2
                 fc.at[t, 'expected_value'] = expected_value
         return fc[['expected_value']]
-
-
-
 
 
     def _build_model(self):
@@ -214,13 +208,6 @@ class MpcDetOptimizer(BaseOptimizer):
         self.model.objective = pyo.Objective(rule=objective, sense=pyo.minimize)
 
 
-    # def solve(self):
-    #     solver = pyo.SolverFactory('ipopt')
-    #     solver.options['max_iter'] = 5000
-    #     result = solver.solve(self.model, tee=True)
-    #     return result
-
-
 
 
     def optimize(self, t_now: pd.Timestamp, forecast: pd.DataFrame) -> dict:
@@ -231,14 +218,9 @@ class MpcDetOptimizer(BaseOptimizer):
         self.time_index = self.fc_exp.index
 
         # Step 2: Get the prices
-        # self.c_buy = self.c_buy_long[self.time_index]
-        # self.c_sell = self.c_sell_long[self.time_index]
-
         self.c_buy1, self.c_sell1, self.c_buy2, self.c_sell2, self.c_buy3 = self._get_prices(self.time_index) # cbuy2=csell2=None for linear prices
 
         
-
-
         # Step 3: Build the model
         self._build_model()
 
@@ -286,7 +268,6 @@ class MpcDetOptimizer(BaseOptimizer):
             'soe_now': self.soe_now,  # Current state of energy before applying the action
             'soe_new': soe_new      # New state of energy after applying the action
         }
-
 
         self.soe_now = soe_new
         return soe_new
