@@ -16,7 +16,7 @@ This repository contains the Python implementation for the paper:
 ├── 01_data/
 │   ├── price_data/create_price_data.ipynb      # Create price timeseries (import/export) in Time-Of-Use manner
 │   ├── load_data.ipynb/                        # Execute to download the data. Create net-load timeseries for 15 buildings.
-│   ├── raw_data/                               # Contains zipped original (untouched) data (once load_data.ipynb is executed)
+│   ├── raw_data/                               # Contains untouched original zipped data (once load_data.ipynb is executed)
 │   └── prosumption_data/                       # Contains net-load data created via load_data.ipynb
 │
 |
@@ -54,25 +54,24 @@ This repository contains the Python implementation for the paper:
    ```
 4. Install Packages specified in requirements.txt
    ```
-   python -m pip install -r requirements-optimization.txt
+   python -m pip install -r requirements.txt
    ```
 Furthermore, ensure that IPOPT is properly installed. For more information, see
-[IPOPT](https://github.com/coin-or/Ipopt)
+[IPOPT](https://github.com/coin-or/Ipopt).
 
 ## Execution
-To start an optimization process, select the desired configurations in 03_optimization/configs/test_config.json, and execute main.py
+To start an optimization process, execute main.py. Note that the desired optimization configurations can be specified in 03_optimization/configs/test_config.json.
    ```
    python 03_optimization/main.py
    ```
 
-## Reproducibility
-### Reproduce Optimization Results
-In order to reproduce the results shown in the paper, execute the optimization process with the corresponding parameter file for Case 1, Case 2, or Case 3 specified in main.py. The necessary forecasts are included in the repository.
 
-<br>
+
+## Reproducibility
+To keep this repository manageable, only the forecasts of a single building (SFH3) are uploaded. Nevertheless, regarding the results, all 15 buildings and performed simulations are included such that all plots and tables listed in the paper can be reproduced without having the need to rerun optimization processes.
 
 ### Reproduce Forecasts
-In order to reproduce the forecasts, the following steps need to be done:
+Note that forecasts are only necessary, if realistic results should be reproduced. If only results of Rule-Based and MPC with ideal forecasts are of interest, this step can be skipped. To reproduce the forecasts, the following steps need to be done:
 1. Install corresponding forecasting requirements
    ```
    python -m pip install -r requirements-forecasting.txt
@@ -86,11 +85,15 @@ In order to reproduce the forecasts, the following steps need to be done:
       - **PYTHON**: 3.12.5
 
 
+### Reproduce Optimization Results
+To reproduce the results included in this repository and listed in the paper, execute the optimization process with the configs listed in configs_paper.json. Here, adapt the forecast_creation_time to match the creation time of your forecasts. Adjust forecast_update_frequency, mpc_update_frequency, and ground-truth_frequency accordingly.
+
+<br>
+
+
+
 ## Funding
 This project is funded by the Helmholtz Association under the "Energy System Design" program and the German Research Foundation as part of the Research Training Group 2153 "Energy Status Data: Informatics Methods for its Collection, Analysis and Exploitation"
 
 ## License
 This code is licensed under the [MIT License](LICENSE).
-
-## First Version
-The content of this paper was first published on [Arxiv](https://arxiv.org/abs/2411.12480). If you found this repository over the Arxiv version, we kindly refer you to the revised version available soon.
