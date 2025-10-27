@@ -38,9 +38,6 @@ class GroundTruthManager:
 
     def _load_gt(self):        
 
-        # Load all gt data for each building
-        # Filter the data to the relevant time range. Relevant time range goes from start time to end_time + mpc_horizon
-
         # Load each building's fine-resolution DataFrame
         for b in self.buildings:
             num_pv_modules, orientation = self.map_building_to_pv_num_orientation(b)

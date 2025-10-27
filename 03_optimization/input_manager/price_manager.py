@@ -21,12 +21,6 @@ class PriceManager:
         df = pd.read_csv(path, parse_dates=['timestamp'])
         df.set_index('timestamp', inplace=True)
         return df
-
-    # def _resample_prices(self, mpc_freq: int) -> pd.DataFrame:
-    #     """
-    #     Resample the prices to the MPC frequency.
-    #     """
-    #     return self.prices.resample(f'{mpc_freq}min').mean()
     
 
     def get_prices(self, mpc_freq: int) -> pd.DataFrame:

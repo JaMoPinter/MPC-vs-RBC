@@ -7,27 +7,20 @@ from datetime import timedelta
 # TODO: Ideally, this class should have the same struture as GroundTruthManager and PriceManager.
 
 class ForecastManager:
-    """ """
+    """ Manages and selects the forecasts needed for MPC iterations. """
 
     def __init__(self, *,
                  building: str,
                  mpc_freq: int,
                  loader: ForecastLoader):
-        """ """
 
         self.building = building
         self.mpc_freq = mpc_freq
 
-        #self.loader = loader
-
-        # This now is only all the instances we need to load! Just one Building and one MPC frequency
         self.fcs = loader.load(self.building, self.mpc_freq)
-
 
         self.mpc_horizon = loader.mpc_horizon
         self.forecast_update_times = loader.forecasts_to_load
-        #self.fc = loader.fc
-
         self._current_window = None
         
 
