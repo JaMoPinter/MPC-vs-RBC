@@ -146,7 +146,7 @@ class MultiRunEvaluator:
             cols_base = [
                 "model", "building", "freq", "t_start", "t_end", "solver_fails",
                 "e_import_total", "import_cost", "e_export_total", "export_revenue", "e_throughput", "e_discharged_total", "e_battery_deg_costs", "e_end", "net_cost", "net_cost_adj",
-                by  #"exceed_frac","exceed_hours","threshold_kw" "rms_kw", "count", ,"q95_abs_kw", "pg_export_total", "pg_import_total","import_squared", "export_squared", "mss_kw2","pmax_import_kw","pmax_export_kw"
+                by
             ]
         cols = [c for c in cols_base if c in self.df.columns]
 
@@ -155,13 +155,6 @@ class MultiRunEvaluator:
 
         # per-building display (kept from your original behavior)
         from IPython.display import display
-        # means = self.df[cols].mean(numeric_only=True)
-        # means[by] = means[by].round(2)
-        # print(f"\n🏆 Overall mean across all runs:")
-        # for k, v in means.items():
-        #     print(f"  {k}: {v}")
-
-
         for b in self.df["building"].unique():
             df_building = (
                 self.df[self.df["building"] == b][cols]
@@ -171,11 +164,10 @@ class MultiRunEvaluator:
             display(df_building)
 
 
-
     def leaderboard_mean(
         self,
         group=("model",),             # e.g. ("model",) or ("model","freq")
-        sort_by="net_cost_final",           # e.g. "net_cost_adj" if you prefer
+        sort_by="net_cost_final",           # which metric to sort on (defaults to net_cost_final)
         rank_by: str | None = None,   # which metric to rank on (defaults to sort_by or net_cost/net_cost_adj)
         numeric_agg: str = "mean",    # "mean" or "median" for numeric aggregation
         round_ndigits: int | None = 2 # round numeric outputs (None = no rounding)
@@ -199,10 +191,9 @@ class MultiRunEvaluator:
         cols_base = ["path",
                 "model", "building", "freq", "t_start", "t_end", "solver_fails",
                 "e_import_total", "import_cost", "e_export_total", "export_revenue", "e_throughput", "e_discharged_total", "e_battery_deg_costs", "e_end", "net_cost", "net_cost_adj", 
-                "net_cost_final"  #"exceed_frac","exceed_hours","threshold_kw" "rms_kw", "count", ,"q95_abs_kw", "pg_export_total", "pg_import_total","import_squared", "export_squared", "mss_kw2","pmax_import_kw","pmax_export_kw"
+                "net_cost_final"
             ]
         cols = [c for c in cols_base if c in self.df.columns]
-
 
         df = self.df[cols].copy()
         gcols = list(group)
@@ -216,13 +207,8 @@ class MultiRunEvaluator:
         # ---- reliability rollup (as before)
         rollup = df.groupby(gcols, dropna=False).agg(
             runs=("path", "count"),
-            buildings=("building", pd.Series.nunique),
-            #total_steps=("steps", "sum") if "steps" in df.columns else ("path", "count"),
-            #total_failures=("solver_fail_count", "sum") if "solver_fail_count" in df.columns else ("path", "size"),
+            buildings=("building", pd.Series.nunique)
         )
-        #rollup["solver_fail_pct_overall"] = (
-        #    rollup["total_failures"] / rollup["total_steps"].replace(0, pd.NA)
-        #)
 
         # ---- numeric aggregation (mean/median)
         num_cols = df.select_dtypes(include="number").columns.tolist()
@@ -291,19 +277,3 @@ class MultiRunEvaluator:
         ]
         cols = [c for c in cols if c in self.df.columns]
         return self.df[cols].sort_values(["solver_fail_pct", "solver_fail_count"], ascending=False).reset_index(drop=True)
-
-    def summary_by(self, group: List[str], agg_value: str = "net_cost") -> pd.DataFrame:
-        """
-        Quick grouped summary (mean costs + failure rates).
-        Example: summary_by(["model","freq"])
-        """
-        df = self.df.copy()
-        # Aggregate both performance and reliability
-        out = df.groupby(group).agg(
-            mean_cost=(agg_value, "mean"),
-            runs=("path", "count"),
-            total_steps=("steps", "sum"),
-            total_failures=("solver_fail_count", "sum"),
-        )
-        out["fail_pct_overall"] = out["total_failures"] / out["total_steps"].replace(0, pd.NA)
-        return out.reset_index()
