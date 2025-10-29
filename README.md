@@ -34,6 +34,7 @@ This repository contains the Python implementation for the paper:
     ├── optimization/base.py                    # Base class for all battery models
     ├── optimization/registry.py                # Register battery control models
     ├── optimization/simulation_engine.py       # Executes optimization and applies decision to ground-truth iteratively
+    ├── runs/                                   # Storage that contains optimization results. Here, one exemplary result is included.
     ├── utils.py                                # Helper functions
     └── main.py                                 # Execute this file to start simulation with in configs specified specs
 
