@@ -16,8 +16,6 @@ authors:
 - family-names: "Hagenmeyer"
   given-names: "Veit"
   orcid: "https://orcid.org/0000-0002-3572-9083"
-title: "Averaging favors MPC: Github Repository"
-version: 1.0.0
-doi: tbd
+title: "Averaging favors MPC"
 date-released: 2026-01-30
 url: "https://github.com/JaMoPinter/MPC-vs-RBC"
