@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Pinter"
+  given-names: "Janik"
+  orcid: "https://orcid.org/0009-0000-4494-8416"
+- family-names: "Zahn"
+  given-names: "Frederik"
+  orcid: "https://orcid.org/0000-0002-5704-056X"
+- family-names: "Beichter"
+  given-names: "Maximilian"
+  orcid: "https://orcid.org/0009-0009-9713-3590"
+- family-names: "Mikut"
+  given-names: "Ralf"
+  orcid: "https://orcid.org/0000-0001-9100-5496"
+- family-names: "Hagenmeyer"
+  given-names: "Veit"
+  orcid: "https://orcid.org/0000-0002-3572-9083"
+title: "Averaging favors MPC: Github Repository"
+version: 1.0.0
+doi: tbd
+date-released: 2026-01-30
+url: "https://github.com/JaMoPinter/MPC-vs-RBC"
