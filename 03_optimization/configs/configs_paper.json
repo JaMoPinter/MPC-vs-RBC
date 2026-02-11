@@ -3,18 +3,18 @@
 
     "forecasts": {
         "model": "AutoKANDet_MSE",
-        "fc_creation_time": "20XX-XX-XXTXX:XX:XX+00:00",
+        "fc_creation_time": "2025-08-16T18:35:40+00:00",
         "parametric_assumption": "expected_value",
         "fc_update_freq": 60
     },
 
 
     "optimization": {
-        "buildings": ["SFH3", "SFH4", "SFH9", "SFH12", "SFH14", "SFH16", "SFH18", "SFH19", "SFH22", "SFH27", "SFH28", "SFH29", "SFH30", "SFH32", "SFH36"],
+        "buildings": ["SFH3"],
         "models": ["rule-based", "ideal", "ideal_rule_constGrid", "mpc_det_rule_constGrid"],
         "start_time": "2020-07-20T04:00:00+00:00",
         "end_time": "2020-12-20T04:00:00+00:00",
-        "gt_freq": 1,
+        "gt_freq": 60,
         "mpc_update_freq": [60],
         "mpc_horizon": 24,
         "prices": "tou_prices.csv",
