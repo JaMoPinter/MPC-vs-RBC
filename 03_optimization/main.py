@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     # debugging mode
     start_time = pd.Timestamp.now()
-    path = "03_optimization/configs/test_config.json"
+    path = "03_optimization/configs/configs_paper.json"
     main(path)
 
     time_end = pd.Timestamp.now()
