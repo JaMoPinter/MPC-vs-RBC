@@ -13,6 +13,8 @@ import pandas as pd
 import os
 import numpy as np
 import glob
+import torch
+import random
 
 
 from neuralforecast.losses.pytorch import MSE
@@ -77,17 +79,11 @@ def data_readin(resolution, building):
         raise ValueError(f"Multiple files found for building {building} at resolution {resolution}: {files}")
     
 
-
     file_path = files[0]  # Assuming there's only one file per building and resolution
     data = pd.read_csv(file_path, index_col=0, parse_dates=True)
     data.index = pd.to_datetime(data.index)
     return data
 
-
-import numpy as np
-import torch
-import random
-import os
 
 def set_deterministic(
     enable: bool = True, seed: int = 0, cublas_ws_config: str = ":4096:8", fill_uninitialized_memory: bool = True
@@ -102,7 +98,7 @@ def set_deterministic(
         random.seed(seed)
         np.random.seed(seed)
         torch.backends.cudnn.benchmark = False
-        #torch.use_deterministic_algorithms(mode=True)
+        torch.use_deterministic_algorithms(mode=True, warn_only=True)
         torch.utils.deterministic.fill_uninitialized_memory = fill_uninitialized_memory
         os.environ["PYTHONHASHSEED"] = str(seed)
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = cublas_ws_config
@@ -147,6 +143,10 @@ if __name__ == "__main__":
         start_date = prosumption_building.index[0]
         end_date = prosumption_building.index[-1]
 
+        #
+        # Approximate the number of steps for training, validation, and testing based on the total data range and the resolution
+        # At least one year of training one year of validation
+        #
         # First year of data is used for training
         
         train_start = start_date
@@ -162,10 +162,6 @@ if __name__ == "__main__":
         test_start = validation_end + pd.DateOffset(minutes=RESOLUTION)
         test_end = end_date
         test_steps = int((test_end - test_start).total_seconds() / (RESOLUTION * 60))
-
-        print(f"Training data from {train_start} to {train_end} with {train_steps} steps")
-        print(f"Validation data from {validation_start} to {validation_end} with {val_steps} steps")
-        print(f"Test data from {test_start} to {test_end} with {test_steps} steps")
 
         # get the data into form for training and neuralforecaster 
 
@@ -192,20 +188,6 @@ if __name__ == "__main__":
             print(f"No missing values found in the data for building {building}. No filling needed.")
             filled_mask = df.isna() & df.ffill().notna()
             filled_mask = filled_mask["y"]
-            
-
-
-    
-    
-
-        # Split into train and validation
-        df_train = df[df['ds'] <= validation_end]
-        len_train = len(df_train)
-        print(f"Training data shape: {df_train.shape}")
-
-        # reset index 
-        df_train.reset_index(drop=True, inplace=True)
-
     
 
         #
